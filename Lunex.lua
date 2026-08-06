@@ -549,6 +549,15 @@ function Library:CheckAutoLoad()
     end
 end
 
+-- ========== EXPOSED CONFIG/THEME LISTERS ==========
+function Library:GetSavedConfigs()
+    return getSavedConfigs()
+end
+
+function Library:GetSavedThemes()
+    return getSavedThemes()
+end
+
 function Library:ResetToDefaults()
     for flag, defaultVal in pairs(Library.Defaults) do
         Library.Flags[flag] = cloneTable(defaultVal)
