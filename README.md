@@ -1,2 +1,6 @@
 # Lunex.lol-Ui-lib
-My very first ui lib for Lunex.lol
+sleek minimalist linoria style ui lib
+
+# Credits:
+@vxvxvxvxvvxvxvxvxv without him this wouldn't be possible.
+
