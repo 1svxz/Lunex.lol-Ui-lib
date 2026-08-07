@@ -11,7 +11,6 @@ local HttpService = game:GetService("HttpService")
 local Players     = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
-
 local CONFIG_FOLDER = "Lunex.lol"
 
 -- ================= HELPERS =================
@@ -171,6 +170,11 @@ Library.ThemeRegistry = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers = {}
 
+-- ================= WATERMARK STATE =================
+Library.WatermarkVisible = false
+Library.WatermarkOptions = {}
+Library._WatermarkHost = nil
+
 -- ================= LIBRARY METHODS =================
 function Library:RegisterTheme(inst, prop, themeKey)
     if not inst then return end
@@ -205,6 +209,10 @@ function Library:RefreshTheme()
                 ctrl:Set(Library.Theme[key], false)
             end
         end
+    end
+    -- Refresh watermark if it exists and uses theme colors
+    if Library._WatermarkHost and not Library.WatermarkOptions.leftColor and not Library.WatermarkOptions.rightColor then
+        Library:_UpdateWatermark()
     end
 end
 
@@ -621,6 +629,119 @@ function Library:ResetThemeToDefault()
         Library.Theme[k] = v
     end
     Library:RefreshTheme()
+end
+
+-- ================= WATERMARK =================
+function Library:_UpdateWatermark()
+    local opts = Library.WatermarkOptions or {}
+    local leftColor = opts.leftColor or Library.Theme.TextActive
+    local rightColor = opts.rightColor or Library.Theme.Accent
+    local leftText = opts.leftText or "Lunex UI"
+    local rightText = opts.rightText or "v1.0"
+    local buildText = opts.buildText or "build: " .. os.date("%b %d %Y")
+
+    -- Destroy old watermark if exists
+    if Library._WatermarkHost then
+        Library._WatermarkHost:Destroy()
+        Library._WatermarkHost = nil
+    end
+
+    if not Library.WatermarkVisible then return end
+
+    local PAD, GAP, H = 8, 4, 21
+    local parts = {
+        {t = leftText,  color = leftColor},
+        {t = rightText, color = rightColor},
+        {t = buildText, color = Color3.fromRGB(100,100,100)},
+    }
+    local total = PAD * 2
+    for i, p in ipairs(parts) do
+        total = total + TextService:GetTextSize(p.t, TEXT_SIZE, FONT, Vector2.new(10000, 100)).X
+        if i < #parts then total = total + GAP end
+    end
+    local host = new("Frame", { Name = "Watermark", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(10, 55), Size = UDim2.fromOffset(math.ceil(total), H), ZIndex = 400 }, screenGui)
+    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
+    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 400}, host)
+    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
+    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 400}, host)
+    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
+    vGradient(fill, "HeaderTop", "HeaderBottom")
+    local strip = new("Frame", {BackgroundTransparency = 1, Position = UDim2.fromOffset(PAD - 2, 0), Size = UDim2.new(1,-(PAD-2),1,0), ZIndex = 401}, fill)
+    new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0,GAP), SortOrder = Enum.SortOrder.LayoutOrder}, strip)
+    for i, p in ipairs(parts) do
+        -- We need to create TextLabel directly because outlined uses Theme colors and we want custom colors
+        local lbl = new("TextLabel", {
+            BackgroundTransparency = 1,
+            Text = p.t,
+            TextColor3 = p.color,
+            TextSize = TEXT_SIZE,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextStrokeColor3 = Library.Theme.OuterBorder,
+            TextStrokeTransparency = STROKE_T,
+            TextTruncate = Enum.TextTruncate.None,
+            AutomaticSize = Enum.AutomaticSize.X,
+            Size = UDim2.fromOffset(0, H - 4),
+            LayoutOrder = i,
+            ZIndex = 401,
+        }, strip)
+        applyFont(lbl, false)
+        -- Register theme for stroke color
+        Library:RegisterTheme(lbl, "TextStrokeColor3", "OuterBorder")
+        -- If color is a theme key, register; but we are passing actual Color3, so not.
+    end
+    local grab = new("TextButton", { Name = "Drag", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 402 }, host)
+    local dragging, startPos, startInput = false, nil, nil
+    grab.InputBegan:Connect(function(i)
+        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); closeAllPopups() end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and isMoveInput(i) then
+            local curPos = Vector2.new(i.Position.X, i.Position.Y)
+            local d = curPos - startInput
+            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i) if isTouchOrMouse(i) then dragging = false end end)
+
+    Library._WatermarkHost = host
+end
+
+function Library:CreateWatermark(opts)
+    opts = opts or {}
+    Library.WatermarkOptions = opts
+    Library.WatermarkVisible = true
+    Library:_UpdateWatermark()
+end
+
+-- ================= MOBILE TOGGLE =================
+function Library:CreateMobileToggle(onToggle)
+    local host = new("Frame", { Name = "MobileToggle", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.new(0, 15, 0.4, 0), Size = UDim2.fromOffset(42, 42), ZIndex = 600 }, screenGui)
+    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
+    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600}, host)
+    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
+    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 600}, host)
+    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
+    local btn = new("TextButton", { Name = "ToggleBtn", Text = "UI", TextColor3 = Library.Theme.Accent, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 601, AutoButtonColor = false }, fill)
+    applyFont(btn, true)
+    Library:RegisterTheme(btn, "TextColor3", "Accent")
+    local dragging, startPos, startInput = false, nil, nil
+    local moved = false
+    btn.InputBegan:Connect(function(i)
+        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); moved = false end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and isMoveInput(i) then
+            local curPos = Vector2.new(i.Position.X, i.Position.Y)
+            local d = curPos - startInput
+            if d.Magnitude > 5 then moved = true end
+            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if isTouchOrMouse(i) then if dragging and not moved then if onToggle then onToggle() end end; dragging = false end
+    end)
+    return host
 end
 
 -- ================= RESIZE HANDLES =================
@@ -1557,78 +1678,6 @@ function Library._ColorPicker(parent, pos, startColor, onChange)
     openPopups[#openPopups+1] = function() blocker:Destroy(); pop:Destroy() end
 end
 
--- ================= WATERMARK =================
-function Library:CreateWatermark(opts)
-    opts = opts or {}
-    local PAD, GAP, H = 8, 4, 21
-    local parts = {
-        {t = opts.leftText or "Lunex UI",      cKey = "TextActive"},
-        {t = opts.rightText or "v1.0",          cKey = "Accent"},
-        {t = opts.buildText or "build: " .. os.date("%b %d %Y"), cKey = nil, c = Color3.fromRGB(100,100,100)},
-    }
-    local total = PAD * 2
-    for i, p in ipairs(parts) do
-        total = total + TextService:GetTextSize(p.t, TEXT_SIZE, FONT, Vector2.new(10000, 100)).X
-        if i < #parts then total = total + GAP end
-    end
-    local host = new("Frame", { Name = "Watermark", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(10, 55), Size = UDim2.fromOffset(math.ceil(total), H), ZIndex = 400 }, screenGui)
-    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 400}, host)
-    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
-    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 400}, host)
-    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-    vGradient(fill, "HeaderTop", "HeaderBottom")
-    local strip = new("Frame", {BackgroundTransparency = 1, Position = UDim2.fromOffset(PAD - 2, 0), Size = UDim2.new(1,-(PAD-2),1,0), ZIndex = 401}, fill)
-    new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0,GAP), SortOrder = Enum.SortOrder.LayoutOrder}, strip)
-    for i, p in ipairs(parts) do
-        outlined(strip, p.t, p.cKey or p.c, { AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, H - 4), TextTruncate = Enum.TextTruncate.None, LayoutOrder = i, ZIndex = 401 })
-    end
-    local grab = new("TextButton", { Name = "Drag", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 402 }, host)
-    local dragging, startPos, startInput = false, nil, nil
-    grab.InputBegan:Connect(function(i)
-        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); closeAllPopups() end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMoveInput(i) then
-            local curPos = Vector2.new(i.Position.X, i.Position.Y)
-            local d = curPos - startInput
-            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i) if isTouchOrMouse(i) then dragging = false end end)
-    return host
-end
-
--- ================= MOBILE TOGGLE =================
-function Library:CreateMobileToggle(onToggle)
-    local host = new("Frame", { Name = "MobileToggle", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.new(0, 15, 0.4, 0), Size = UDim2.fromOffset(42, 42), ZIndex = 600 }, screenGui)
-    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600}, host)
-    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
-    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 600}, host)
-    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-    local btn = new("TextButton", { Name = "ToggleBtn", Text = "UI", TextColor3 = Library.Theme.Accent, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 601, AutoButtonColor = false }, fill)
-    applyFont(btn, true)
-    Library:RegisterTheme(btn, "TextColor3", "Accent")
-    local dragging, startPos, startInput = false, nil, nil
-    local moved = false
-    btn.InputBegan:Connect(function(i)
-        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); moved = false end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMoveInput(i) then
-            local curPos = Vector2.new(i.Position.X, i.Position.Y)
-            local d = curPos - startInput
-            if d.Magnitude > 5 then moved = true end
-            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if isTouchOrMouse(i) then if dragging and not moved then if onToggle then onToggle() end end; dragging = false end
-    end)
-    return host
-end
-
 -- ================= CURSOR =================
 local function makeCursor()
     local S = 11; local C = math.floor(S/2)
@@ -1847,6 +1896,117 @@ function Library:CreateThemeManager(tab, side)
         Library:ResetThemeToDefault()
         print("↻ Reset theme")
     end)
+
+    return group
+end
+
+-- ================= BUILT-IN UI CUSTOMIZATION =================
+function Library:CreateUICustomization(tab, side)
+    local group = tab:Group("UI Customization", side or "left")
+
+    -- UI Expansion
+    group:Checkbox("UI Expansion (Resize)", Library.UIExpansion, function(val)
+        Library.UIExpansion = val
+        if Library._UpdateResizeVisibility then
+            Library._UpdateResizeVisibility()
+        end
+    end, nil, "_ui_expansion")
+
+    -- Watermark controls
+    local leftText = Library.WatermarkOptions.leftText or "Lunex UI"
+    local rightText = Library.WatermarkOptions.rightText or "v1.0"
+    local leftColor = Library.WatermarkOptions.leftColor or Library.Theme.TextActive
+    local rightColor = Library.WatermarkOptions.rightColor or Library.Theme.Accent
+
+    group:Checkbox("Show Watermark", Library.WatermarkVisible, function(val)
+        Library.WatermarkVisible = val
+        Library:_UpdateWatermark()
+    end, nil, "_watermark_visible")
+
+    group:TextBox("Left Text", leftText, function(str)
+        Library.WatermarkOptions.leftText = str
+        Library:_UpdateWatermark()
+    end, "_watermark_left_text")
+
+    group:ColorPicker("Left Color", leftColor, function(col)
+        Library.WatermarkOptions.leftColor = col
+        Library:_UpdateWatermark()
+    end, "_watermark_left_color")
+
+    group:TextBox("Right Text", rightText, function(str)
+        Library.WatermarkOptions.rightText = str
+        Library:_UpdateWatermark()
+    end, "_watermark_right_text")
+
+    group:ColorPicker("Right Color", rightColor, function(col)
+        Library.WatermarkOptions.rightColor = col
+        Library:_UpdateWatermark()
+    end, "_watermark_right_color")
+
+    -- Separator
+    group:Label("────────── Theme Colors ──────────")
+
+    -- All theme color pickers
+    group:ColorPicker("Accent", Library.Theme.Accent, function(col)
+        Library.Theme.Accent = col
+        Library.Theme.AccentDark = Color3.new(col.R*0.7, col.G*0.7, col.B*0.7)
+        Library:RefreshTheme()
+    end, "_ui_accent")
+
+    group:ColorPicker("Text Active", Library.Theme.TextActive, function(col)
+        Library.Theme.TextActive = col
+        Library:RefreshTheme()
+    end, "_ui_text_active")
+
+    group:ColorPicker("Text Inactive", Library.Theme.TextInactive, function(col)
+        Library.Theme.TextInactive = col
+        Library:RefreshTheme()
+    end, "_ui_text_inactive")
+
+    group:ColorPicker("Panel Background", Library.Theme.PanelFill, function(col)
+        Library.Theme.PanelFill = col
+        Library:RefreshTheme()
+    end, "_ui_panel_fill")
+
+    group:ColorPicker("Content Background", Library.Theme.ContentFill, function(col)
+        Library.Theme.ContentFill = col
+        Library:RefreshTheme()
+    end, "_ui_content_fill")
+
+    group:ColorPicker("Group Background", Library.Theme.ChildFill, function(col)
+        Library.Theme.ChildFill = col
+        Library:RefreshTheme()
+    end, "_ui_child_fill")
+
+    group:ColorPicker("Header Top", Library.Theme.HeaderTop, function(col)
+        Library.Theme.HeaderTop = col
+        Library:RefreshTheme()
+    end, "_ui_header_top")
+
+    group:ColorPicker("Header Bottom", Library.Theme.HeaderBottom, function(col)
+        Library.Theme.HeaderBottom = col
+        Library:RefreshTheme()
+    end, "_ui_header_bottom")
+
+    group:ColorPicker("Outer Border", Library.Theme.OuterBorder, function(col)
+        Library.Theme.OuterBorder = col
+        Library:RefreshTheme()
+    end, "_ui_outer_border")
+
+    group:ColorPicker("Inner Border", Library.Theme.InnerBorder, function(col)
+        Library.Theme.InnerBorder = col
+        Library:RefreshTheme()
+    end, "_ui_inner_border")
+
+    group:ColorPicker("Tab Inactive", Library.Theme.TabInactive, function(col)
+        Library.Theme.TabInactive = col
+        Library:RefreshTheme()
+    end, "_ui_tab_inactive")
+
+    group:ColorPicker("Tab Hover", Library.Theme.TabHover, function(col)
+        Library.Theme.TabHover = col
+        Library:RefreshTheme()
+    end, "_ui_tab_hover")
 
     return group
 end
