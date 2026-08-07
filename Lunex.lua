@@ -1,4 +1,8 @@
--- Fixed slider gradient (AccentDark updates automatically) + dropdown with sliding animation
+-- ============================================================
+-- LUNEX UI LIBRARY - COMPLETE FINAL VERSION
+-- https://github.com/1svxz/Lunex.lol-Ui-lib
+-- ============================================================
+
 local UIS         = game:GetService("UserInputService")
 local TweenService= game:GetService("TweenService")
 local RunService  = game:GetService("RunService")
@@ -10,6 +14,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local CONFIG_FOLDER = "Lunex.lol"
 
+-- ================= HELPERS =================
 local function ensureFolder()
     if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
         pcall(makefolder, CONFIG_FOLDER)
@@ -48,6 +53,7 @@ local function guiParent()
     return LocalPlayer:WaitForChild("PlayerGui")
 end
 
+-- ================= PRESET THEMES =================
 local PRESET_THEMES = {
     Default = {
         Accent        = Color3.fromRGB(200, 68, 240),
@@ -149,6 +155,7 @@ local FONT_FACE  = nil
 local TEXT_SIZE  = 13
 local STROKE_T   = 0.55
 
+-- ================= LIBRARY TABLE =================
 local Library = {}
 Library.__index = Library
 Library.Theme    = copyTable(PRESET_THEMES.Default)
@@ -164,6 +171,7 @@ Library.ThemeRegistry = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers = {}
 
+-- ================= LIBRARY METHODS =================
 function Library:RegisterTheme(inst, prop, themeKey)
     if not inst then return end
     table.insert(Library.ThemeRegistry, {Inst = inst, Prop = prop, Key = themeKey})
@@ -200,6 +208,7 @@ function Library:RefreshTheme()
     end
 end
 
+-- ================= UI BUILDERS =================
 local function new(class, props, parent)
     local o = Instance.new(class)
     if props then
@@ -324,6 +333,7 @@ local function keyName(key)
     return "?"
 end
 
+-- ================= SCREEN GUI =================
 local screenGui = new("ScreenGui", {
     Name            = "ui",
     IgnoreGuiInset  = true,
@@ -350,6 +360,7 @@ end
 local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
+-- ================= TAB MANAGEMENT =================
 local function syncTabGap(win)
     local tab = win.ActiveTab
     if not tab then return end
@@ -403,6 +414,7 @@ local function isMoveInput(i)
     return i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch
 end
 
+-- ================= CONFIG HELPERS =================
 local function serializeValue(val)
     if typeof(val) == "Color3" then
         return {__type = "Color3", r = val.R, g = val.G, b = val.B}
@@ -468,6 +480,15 @@ local function getSavedThemes()
     return themes
 end
 
+-- ================= CONFIG METHODS =================
+function Library:GetSavedConfigs()
+    return getSavedConfigs()
+end
+
+function Library:GetSavedThemes()
+    return getSavedThemes()
+end
+
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensureFolder()
@@ -521,15 +542,6 @@ function Library:DeleteConfig(filename)
     end
 end
 
-function Library:DeleteTheme(themeName)
-    if not delfile or not isfile then return end
-    themeName = themeName or "custom_theme"
-    local path = CONFIG_FOLDER .. "/" .. themeName .. "_theme.json"
-    if isfile(path) then
-        pcall(delfile, path)
-    end
-end
-
 function Library:SetAutoLoad(filename)
     if not writefile then return end
     ensureFolder()
@@ -549,21 +561,22 @@ function Library:CheckAutoLoad()
     end
 end
 
--- ========== EXPOSED CONFIG/THEME LISTERS ==========
-function Library:GetSavedConfigs()
-    return getSavedConfigs()
-end
-
-function Library:GetSavedThemes()
-    return getSavedThemes()
-end
-
 function Library:ResetToDefaults()
     for flag, defaultVal in pairs(Library.Defaults) do
         Library.Flags[flag] = cloneTable(defaultVal)
         if Library.Controls[flag] and Library.Controls[flag].Set then
             Library.Controls[flag]:Set(cloneTable(defaultVal), true)
         end
+    end
+end
+
+-- ================= THEME METHODS =================
+function Library:DeleteTheme(themeName)
+    if not delfile or not isfile then return end
+    themeName = themeName or "custom_theme"
+    local path = CONFIG_FOLDER .. "/" .. themeName .. "_theme.json"
+    if isfile(path) then
+        pcall(delfile, path)
     end
 end
 
@@ -610,6 +623,7 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
+-- ================= RESIZE HANDLES =================
 local function addResizeHandles(canvas, onResize)
     local T = 8
     local host = new("Frame", {
@@ -674,6 +688,7 @@ local function addResizeHandles(canvas, onResize)
     end
 end
 
+-- ================= WINDOW =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -805,6 +820,7 @@ function Library:Window(opts)
     return window
 end
 
+-- ================= WINDOW METHODS =================
 Library._WindowMethods = {}
 
 function Library._WindowMethods:Tab(name)
@@ -909,6 +925,7 @@ function Library._WindowMethods:Tab(name)
     return tab
 end
 
+-- ================= TAB METHODS =================
 Library._TabMethods = {}
 
 function Library._TabMethods:Group(title, side)
@@ -975,6 +992,7 @@ function Library._TabMethods:Group(title, side)
     return group
 end
 
+-- ================= GROUP METHODS =================
 Library._GroupMethods = {}
 
 local function nextRow(group, height)
@@ -1160,6 +1178,7 @@ function Library._GroupMethods:Slider(text, o, callback, flag)
     return ctrl
 end
 
+-- ================= COMBO HELPERS =================
 local function plusIcon(parent, colorKey)
     local host = new("Frame", {
         Name = "Icon", BackgroundTransparency = 1,
@@ -1179,7 +1198,6 @@ local function plusIcon(parent, colorKey)
     }
 end
 
--- ===== DROPDOWN WITH SLIDE ANIMATION (POSITIONED BELOW) =====
 local function buildComboPopup(box, items, isMulti, getState, onPick)
     closeAllPopups()
     local ITEM_H = 16
@@ -1188,19 +1206,16 @@ local function buildComboPopup(box, items, isMulti, getState, onPick)
     local boxAbs = box.AbsolutePosition
     local sz = box.AbsoluteSize
 
-    -- Blocker FIRST so popup renders on top
     local blocker = new("TextButton", {
         Name = "Blocker", BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
         Size = UDim2.fromScale(1, 1), ZIndex = 501,
     }, screenGui)
     blocker.MouseButton1Click:Connect(closeAllPopups)
 
-    -- Popup frame: positioned directly BELOW the dropdown box (boxAbs.Y + sz.Y + 4)
-    -- This ensures it always drops downward.
     local pop = new("Frame", {
         Name = "DropdownPopup",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(boxAbs.X, boxAbs.Y + sz.Y + 4),  -- below with a small gap
+        Position = UDim2.fromOffset(boxAbs.X, boxAbs.Y + sz.Y + 4),
         Size = UDim2.fromOffset(sz.X, targetH),
         ClipsDescendants = true,
         ZIndex = 502,
@@ -1209,7 +1224,6 @@ local function buildComboPopup(box, items, isMulti, getState, onPick)
     local _, pfill = framedBox(pop, "OuterBorder", "ComboInner", "ComboFill", {ZIndex = 502})
     pfill.Size = UDim2.new(1, -2, 1, -2)
 
-    -- Mask frame (clips items during slide)
     local mask = new("Frame", {
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
@@ -1217,7 +1231,6 @@ local function buildComboPopup(box, items, isMulti, getState, onPick)
         ZIndex = 503,
     }, pfill)
 
-    -- Items container starts above the mask and slides down
     local itemsContainer = new("Frame", {
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(0, -targetH),
@@ -1243,7 +1256,6 @@ local function buildComboPopup(box, items, isMulti, getState, onPick)
         end)
     end
 
-    -- Animate items container sliding down
     tween(itemsContainer, 0.15, {Position = UDim2.fromOffset(0, 0)}):Play()
 
     openPopups[#openPopups + 1] = function()
@@ -1253,6 +1265,7 @@ local function buildComboPopup(box, items, isMulti, getState, onPick)
     return pop
 end
 
+-- ================= COMBO METHODS =================
 function Library._GroupMethods:Combo(text, items, default, callback, flag)
     local index = default or 1
     local row = nextRow(self, 34)
@@ -1348,6 +1361,7 @@ function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
     return ctrl
 end
 
+-- ================= TEXTBOX =================
 function Library._GroupMethods:TextBox(text, default, callback, flag)
     local row = nextRow(self, 34)
     outlined(row, text, "TextInactive", {Position = UDim2.fromOffset(1,0), Size = UDim2.fromOffset(120,13), TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 3})
@@ -1367,6 +1381,7 @@ function Library._GroupMethods:TextBox(text, default, callback, flag)
     return ctrl
 end
 
+-- ================= BUTTON =================
 function Library._GroupMethods:Button(text, callback)
     local row = nextRow(self, 20)
     local btn = new("TextButton", { Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 3 }, row)
@@ -1377,6 +1392,7 @@ function Library._GroupMethods:Button(text, callback)
     btn.MouseLeave:Connect(function() tween(fill, 0.12, {BackgroundColor3 = Library.Theme.ComboFill}):Play() end)
 end
 
+-- ================= KEYBIND HELPERS =================
 local function buildKeyModePopup(parentBox, currentMode, onMode)
     closeAllPopups()
     local boxAbs = parentBox.AbsolutePosition
@@ -1436,6 +1452,7 @@ local function makeKeybindBox(parent, key, mode, onKey, onMode, flag)
     return box, ctrl
 end
 
+-- ================= KEYBIND METHODS =================
 function Library._GroupMethods:Keybind(text, default, callback, flag)
     local row = nextRow(self, 14)
     outlined(row, text, "TextInactive", {Position = UDim2.fromOffset(0,0), Size = UDim2.new(1,-38,1,0), ZIndex = 3})
@@ -1468,11 +1485,13 @@ function Library._GroupMethods:CheckboxKeybind(text, default, key, callback, fla
     return ctrl
 end
 
+-- ================= LABEL =================
 function Library._GroupMethods:Label(text)
     local row = nextRow(self, 14)
     outlined(row, text, "TextInactive", {Size = UDim2.fromScale(1,1), ZIndex = 3})
 end
 
+-- ================= COLOR PICKER =================
 function Library._ColorPicker(parent, pos, startColor, onChange)
     local h, s, v = Color3.toHSV(startColor)
     local W = 150
@@ -1538,12 +1557,14 @@ function Library._ColorPicker(parent, pos, startColor, onChange)
     openPopups[#openPopups+1] = function() blocker:Destroy(); pop:Destroy() end
 end
 
-local function makeWatermark()
+-- ================= WATERMARK =================
+function Library:CreateWatermark(opts)
+    opts = opts or {}
     local PAD, GAP, H = 8, 4, 21
     local parts = {
-        {t = "remade by",                       cKey = "TextActive"},
-        {t = "angel",                           cKey = "Accent"},
-        {t = "build: " .. os.date("%b %d %Y"),  cKey = nil, c = Color3.fromRGB(100,100,100)},
+        {t = opts.leftText or "Lunex UI",      cKey = "TextActive"},
+        {t = opts.rightText or "v1.0",          cKey = "Accent"},
+        {t = opts.buildText or "build: " .. os.date("%b %d %Y"), cKey = nil, c = Color3.fromRGB(100,100,100)},
     }
     local total = PAD * 2
     for i, p in ipairs(parts) do
@@ -1578,7 +1599,8 @@ local function makeWatermark()
     return host
 end
 
-local function makeMobileToggle(onToggle)
+-- ================= MOBILE TOGGLE =================
+function Library:CreateMobileToggle(onToggle)
     local host = new("Frame", { Name = "MobileToggle", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.new(0, 15, 0.4, 0), Size = UDim2.fromOffset(42, 42), ZIndex = 600 }, screenGui)
     Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
     local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600}, host)
@@ -1709,7 +1731,124 @@ function Library:BindToggle(window)
             toggleUI()
         end
     end)
-    makeMobileToggle(toggleUI)
+    Library:CreateMobileToggle(toggleUI)
+end
+
+-- ================= BUILT-IN CONFIG MANAGER =================
+function Library:CreateConfigManager(tab, side)
+    local group = tab:Group("Config Manager", side or "left")
+
+    local cfgNameBox = group:TextBox("Config Name", "my_config", nil, "_cfg_name")
+
+    local function refreshConfigs()
+        local list = Library:GetSavedConfigs() or {"none"}
+        if cfgCombo and cfgCombo.Refresh then
+            cfgCombo:Refresh(list)
+            cfgCombo:Set(1, false)
+        end
+    end
+
+    local cfgCombo = group:Combo("Saved Configs", Library:GetSavedConfigs() or {"none"}, 1, function(idx, name)
+        if name and name ~= "none" then cfgNameBox:Set(name) end
+    end, "_cfg_selected")
+
+    group:Button("Save Config", function()
+        local name = cfgNameBox:Get()
+        if name and name ~= "" then
+            Library:SaveConfig(name)
+            print("Saved config:", name)
+            refreshConfigs()
+        end
+    end)
+
+    group:Button("Load Config", function()
+        local _, name = cfgCombo:Get()
+        if name and name ~= "none" then
+            Library:LoadConfig(name)
+            print("Loaded config:", name)
+        end
+    end)
+
+    group:Button("Delete Config", function()
+        local _, name = cfgCombo:Get()
+        if name and name ~= "none" then
+            Library:DeleteConfig(name)
+            print("Deleted config:", name)
+            refreshConfigs()
+        end
+    end)
+
+    group:Button("Set Auto Load", function()
+        local name = cfgNameBox:Get()
+        if name and name ~= "" and name ~= "none" then
+            Library:SetAutoLoad(name)
+            print("Auto-load set to:", name)
+        end
+    end)
+
+    group:Button("Reset to Defaults", function()
+        Library:ResetToDefaults()
+        print("↻ Reset to defaults")
+    end)
+
+    return group
+end
+
+-- ================= BUILT-IN THEME MANAGER =================
+function Library:CreateThemeManager(tab, side)
+    local group = tab:Group("Theme Manager", side or "right")
+
+    local themeNameBox = group:TextBox("Theme Name", "my_theme", nil, "_theme_name")
+
+    group:Combo("Preset Theme", {"Default", "Tokyo Night", "Crimson", "Emerald"}, 1, function(idx, name)
+        Library:SetPresetTheme(name)
+        print("Theme:", name)
+    end, "_theme_preset")
+
+    local function refreshThemes()
+        local list = Library:GetSavedThemes() or {"none"}
+        if themeCombo and themeCombo.Refresh then
+            themeCombo:Refresh(list)
+            themeCombo:Set(1, false)
+        end
+    end
+
+    local themeCombo = group:Combo("Saved Themes", Library:GetSavedThemes() or {"none"}, 1, function(idx, name)
+        if name and name ~= "none" then themeNameBox:Set(name) end
+    end, "_theme_saved")
+
+    group:Button("Save Custom Theme", function()
+        local name = themeNameBox:Get()
+        if name and name ~= "" then
+            Library:SaveTheme(name)
+            print("Saved theme:", name)
+            refreshThemes()
+        end
+    end)
+
+    group:Button("Load Custom Theme", function()
+        local _, name = themeCombo:Get()
+        if name and name ~= "none" then
+            Library:LoadTheme(name)
+            print("Loaded theme:", name)
+        end
+    end)
+
+    group:Button("Delete Custom Theme", function()
+        local _, name = themeCombo:Get()
+        if name and name ~= "none" then
+            Library:DeleteTheme(name)
+            print("Deleted theme:", name)
+            refreshThemes()
+        end
+    end)
+
+    group:Button("Reset Theme to Default", function()
+        Library:ResetThemeToDefault()
+        print("↻ Reset theme")
+    end)
+
+    return group
 end
 
 -- ================= RETURN =================
