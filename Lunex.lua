@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND
+-- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND (FIXED)
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -12,7 +12,6 @@ local Players     = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 local CONFIG_FOLDER = "Lunex.lol"
-local SCREEN_PADDING = 20  -- keeps UI from touching screen edges
 
 -- ================= HELPERS =================
 local function ensureFolder()
@@ -380,55 +379,32 @@ local function syncTabGap(win)
     seg(win._iT2, gx + tw - 1, panelW - gx - tw)
 end
 
--- ================= UPDATED TAB POSITIONS (with shrinking) =================
 local function updateTabPositions(win)
     local numTabs = #win.Tabs
     if numTabs == 0 then return end
 
     local panelW = win.Canvas.Size.X.Offset - 20
-    local tabSp = 2
-    local minTabWidth = 40
-    local maxTabWidth = 100
+    local tabSp = win._tabSp or 2
+    local tabW = 81
 
-    -- Compute tab width to fit in panelW
-    local tabWidth = math.floor((panelW - (numTabs - 1) * tabSp) / numTabs)
-    tabWidth = math.clamp(tabWidth, minTabWidth, maxTabWidth)
+    local totalGaps = math.max(0, numTabs - 1) * tabSp
+    local tabsTotal = numTabs * tabW + totalGaps
 
-    -- If even minTabWidth doesn't fit, we just use minTabWidth and let overflow happen
-    -- but we don't want to exceed maxTabWidth
-    local tabsTotal = numTabs * tabWidth + (numTabs - 1) * tabSp
-
-    win._tabW = tabWidth
-    win._tabSp = tabSp
+    win._tabW = tabW
     win._tabsTotal = tabsTotal
 
-    -- Center the tab host in the panel
     win.TabHost.Size = UDim2.fromOffset(tabsTotal, win._tabH)
     win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - tabsTotal) / 2), 40 - win._tabH)
 
-    -- Update each tab button and label
     for i, tab in ipairs(win.Tabs) do
-        local x = (i - 1) * (tabWidth + tabSp)
+        local x = (i - 1) * (tabW + tabSp)
         tab.Button.Position = UDim2.fromOffset(x, 0)
-        tab.Button.Size = UDim2.fromOffset(tabWidth, win._tabH)
-
-        -- Update label text size based on tab width
-        local label = tab.Label
-        if label then
-            local newSize = 13
-            if tabWidth < 60 then newSize = 10
-            elseif tabWidth < 45 then newSize = 8 end
-            label.TextSize = newSize
-        end
-
-        -- Also update the outer/inner frames to match width (they are parented to button, so they should auto-size if we set size relative to button)
-        -- But they are sized with UDim2.new(1,0, ...) so they already stretch.
+        tab.Button.Size = UDim2.fromOffset(tabW, win._tabH)
     end
 
     syncTabGap(win)
 end
 
--- ================= UI INPUT HELPERS =================
 local function isTouchOrMouse(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
@@ -646,8 +622,8 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
--- ================= RESIZE HANDLES (with screen clamp) =================
-local function addResizeHandles(canvas, onResize, clampFn)
+-- ================= RESIZE HANDLES (FIXED) =================
+local function addResizeHandles(canvas, onResize, windowRef)
     local T = 8
     local host = new("Frame", {
         Name = "ResizeHost", BackgroundTransparency = 1, Active = false,
@@ -695,7 +671,10 @@ local function addResizeHandles(canvas, onResize, clampFn)
             if not active or not isMoveInput(i) or not Library.UIExpansion then return end
             local curPos = Vector2.new(i.Position.X, i.Position.Y)
             local d = curPos - startInput
-            local w = math.clamp(startSize.X + e.sx * d.X, MIN_SIZE.X, MAX_SIZE.X)
+
+            -- FIX: use the window's dynamic minimum width
+            local minW = windowRef and windowRef:GetMinWidth() or MIN_SIZE.X
+            local w = math.clamp(startSize.X + e.sx * d.X, minW, MAX_SIZE.X)
             local ht = math.clamp(startSize.Y + e.sy * d.Y, MIN_SIZE.Y, MAX_SIZE.Y)
             local ox = (e.sx < 0) and (startSize.X - w) or 0
             local oy = (e.sy < 0) and (startSize.Y - ht) or 0
@@ -703,7 +682,7 @@ local function addResizeHandles(canvas, onResize, clampFn)
             canvas.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + ox,
                 startPos.Y.Scale, startPos.Y.Offset + oy)
-            if clampFn then clampFn() end
+            if onResize then onResize() end
         end)
         UIS.InputEnded:Connect(function(i)
             if isTouchOrMouse(i) then active = false end
@@ -711,7 +690,7 @@ local function addResizeHandles(canvas, onResize, clampFn)
     end
 end
 
--- ================= WINDOW (with drag clamp and dynamic tabs) =================
+-- ================= WINDOW =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -785,12 +764,12 @@ function Library:Window(opts)
     local iT2 = new("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.fromOffset(0,1), ZIndex = 2}, panel)
     Library:RegisterTheme(iT2, "BackgroundColor3", "ContentInner")
 
-    local TAB_H = 18
+    local TAB_W, TAB_H, TAB_SP = 81, 18, 2
+    local tabsTotal = TAB_W * 4 + TAB_SP * 3
     local tabHost = new("Frame", {
         Name = "Tabs", BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10, 40 - TAB_H),
-        Size = UDim2.fromOffset(0, TAB_H), -- will be updated
-        ZIndex = 4,
+        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabsTotal) / 2), 40 - TAB_H),
+        Size = UDim2.fromOffset(tabsTotal, TAB_H), ZIndex = 4,
     }, canvas)
 
     local pageHost = new("Frame", {
@@ -809,35 +788,6 @@ function Library:Window(opts)
         AutoButtonColor = false,
     }, canvas)
 
-    local window = setmetatable({
-        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
-        Tabs = {}, ActiveTab = nil, _tabW = 81, _tabH = TAB_H, _tabSp = 2,
-        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
-        _tabsTotal = 0,
-    }, {__index = Library._WindowMethods})
-
-    -- Clamp function to keep window on screen
-    local function clampCanvas()
-        local screenSize = screenGui.AbsoluteSize
-        if screenSize.X == 0 or screenSize.Y == 0 then return end
-
-        local w = canvas.Size.X.Offset
-        local h = canvas.Size.Y.Offset
-        local posX = canvas.Position.X.Offset
-        local posY = canvas.Position.Y.Offset
-
-        w = math.clamp(w, MIN_SIZE.X, math.min(MAX_SIZE.X, screenSize.X - SCREEN_PADDING))
-        h = math.clamp(h, MIN_SIZE.Y, math.min(MAX_SIZE.Y, screenSize.Y - SCREEN_PADDING))
-
-        posX = math.clamp(posX, SCREEN_PADDING - w, screenSize.X - SCREEN_PADDING)
-        posY = math.clamp(posY, SCREEN_PADDING - h, screenSize.Y - SCREEN_PADDING)
-
-        canvas.Size = UDim2.fromOffset(w, h)
-        canvas.Position = UDim2.new(0, posX, 0, posY)
-        updateTabPositions(window)
-    end
-    window._clamp = clampCanvas
-
     do
         local dragging, startPos, startInput
         dragZone.InputBegan:Connect(function(i)
@@ -850,11 +800,7 @@ function Library:Window(opts)
             if dragging and isMoveInput(i) then
                 local curPos = Vector2.new(i.Position.X, i.Position.Y)
                 local d = curPos - startInput
-                canvas.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + d.X,
-                    startPos.Y.Scale, startPos.Y.Offset + d.Y
-                )
-                clampCanvas()
+                canvas.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
             end
         end)
         UIS.InputEnded:Connect(function(i)
@@ -862,12 +808,30 @@ function Library:Window(opts)
         end)
     end
 
-    addResizeHandles(canvas, function()
-        -- onResize – clampCanvas already called inside handles
-    end, clampCanvas)
+    local window = setmetatable({
+        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
+        Tabs = {}, ActiveTab = nil, _tabW = TAB_W, _tabH = TAB_H, _tabSp = TAB_SP,
+        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
+        _tabsTotal = tabsTotal,
+    }, {__index = Library._WindowMethods})
 
-    -- Also clamp on screen size changes (device rotation, etc.)
-    screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(clampCanvas)
+    -- Add dynamic minimum width method
+    function window:GetMinWidth()
+        local panelPadding = 20  -- 10 left + 10 right
+        local tabSp = self._tabSp or 2
+        local tabW = 81
+        local numTabs = #self.Tabs
+        if numTabs == 0 then return MIN_SIZE.X end
+        local tabsTotal = numTabs * tabW + math.max(0, numTabs - 1) * tabSp
+        -- minimum panel width = tabs + 20px padding
+        local minPanel = tabsTotal + 20
+        -- canvas width = panel + 20 (the panel is offset by 10 on each side)
+        return math.max(MIN_SIZE.X, minPanel + 20)
+    end
+
+    addResizeHandles(canvas, function()
+        updateTabPositions(window)
+    end, window)  -- pass window reference
 
     return window
 end
@@ -1950,9 +1914,6 @@ function Library:CreateUICustomization(tab, side)
         Library.UIExpansion = val
         if Library._UpdateResizeVisibility then
             Library._UpdateResizeVisibility()
-        end
-        if tab.Window and tab.Window._clamp then
-            tab.Window._clamp()
         end
     end, nil, "_ui_expansion")
 
