@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND + DYNAMIC TABS
+-- LUNEX UI LIBRARY - COMPLETE WITH DYNAMIC TAB WIDTH (EXPAND + SHRINK)
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -385,9 +385,9 @@ local function updateTabPositions(win)
 
     local panelW = win.Canvas.Size.X.Offset - 20
     local tabSp = win._tabSp or 2
-    local minTabW = 81  -- minimum tab width for readability
+    local minTabW = 50   -- ★ shrink limit: tabs can go down to 50px wide
 
-    -- Calculate tab width to fill the panel, with a minimum of 81px
+    -- Tab width = share of panel width, but never smaller than minTabW
     local availableForTabs = panelW - (numTabs - 1) * tabSp
     local tabW = math.max(minTabW, availableForTabs / numTabs)
 
@@ -815,12 +815,13 @@ function Library:Window(opts)
         _tabsTotal = tabsTotal,
     }, {__index = Library._WindowMethods})
 
-    -- Dynamic minimum width based on minimum tab width
+    -- Dynamic minimum width: enough space for smallest tabs (50px each)
     function window:GetMinWidth()
         local tabSp = self._tabSp or 2
         local numTabs = #self.Tabs
         if numTabs == 0 then return MIN_SIZE.X end
-        local tabsTotalMin = numTabs * 81 + math.max(0, numTabs - 1) * tabSp
+        local minTabW = 50   -- ★ same limit as in updateTabPositions
+        local tabsTotalMin = numTabs * minTabW + math.max(0, numTabs - 1) * tabSp
         local minPanel = tabsTotalMin + 20
         return math.max(MIN_SIZE.X, minPanel + 20)
     end
