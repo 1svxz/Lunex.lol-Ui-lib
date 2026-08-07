@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - TABS WITH SIDE SPACING (MAX WIDTH)
+-- LUNEX UI LIBRARY - TABS + GROUPS ALIGNED PERFECTLY
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -386,24 +386,32 @@ local function updateTabPositions(win)
     local panelW = win.Canvas.Size.X.Offset - 20
     local tabSp = win._tabSp or 2
     local minTabW = 50
-    local maxTabW = 120   -- ★ tabs won't grow past this, leaving space on sides
+    local maxTabW = 120
 
-    -- Calculate tab width: fill panel if possible, but respect min/max
     local availableForTabs = panelW - (numTabs - 1) * tabSp
     local tabW = math.clamp(availableForTabs / numTabs, minTabW, maxTabW)
 
     win._tabW = tabW
     win._tabsTotal = numTabs * tabW + (numTabs - 1) * tabSp
 
-    -- Center the tab host, leaving empty space on left and right
+    -- Position tab host (centered)
+    local tabX = 10 + math.floor((panelW - win._tabsTotal) / 2)
+    win.TabHost.Position = UDim2.fromOffset(tabX, 40 - win._tabH)
     win.TabHost.Size = UDim2.fromOffset(win._tabsTotal, win._tabH)
-    win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - win._tabsTotal) / 2), 40 - win._tabH)
 
     for i, tab in ipairs(win.Tabs) do
         local x = (i - 1) * (tabW + tabSp)
         tab.Button.Position = UDim2.fromOffset(x, 0)
         tab.Button.Size = UDim2.fromOffset(tabW, win._tabH)
     end
+
+    -- ★ ALIGN PAGE HOST TO TAB HOST'S HORIZONTAL BOUNDARIES
+    local canvasH = win.Canvas.Size.Y.Offset
+    local pageY = 48
+    local pageBottomMargin = 66
+    local pageHeight = canvasH - pageY - pageBottomMargin
+    win.PageHost.Position = UDim2.fromOffset(tabX, pageY)
+    win.PageHost.Size = UDim2.fromOffset(win._tabsTotal, pageHeight)
 
     syncTabGap(win)
 end
@@ -774,9 +782,11 @@ function Library:Window(opts)
         Size = UDim2.fromOffset(tabsTotal, TAB_H), ZIndex = 4,
     }, canvas)
 
+    -- Page host will be repositioned dynamically, so initial size/pos is temporary
     local pageHost = new("Frame", {
         Name = "Pages", BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(18, 48), Size = UDim2.new(1,-36,1,-66),
+        Position = UDim2.fromOffset(0, 48),
+        Size = UDim2.new(1, 0, 1, -66),
         ZIndex = 3, ClipsDescendants = true,
     }, canvas)
 
@@ -817,7 +827,6 @@ function Library:Window(opts)
         _tabsTotal = tabsTotal,
     }, {__index = Library._WindowMethods})
 
-    -- Dynamic minimum width: enough space for smallest tabs (50px each)
     function window:GetMinWidth()
         local tabSp = self._tabSp or 2
         local numTabs = #self.Tabs
