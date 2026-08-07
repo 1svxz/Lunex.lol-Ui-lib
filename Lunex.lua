@@ -380,32 +380,55 @@ local function syncTabGap(win)
     seg(win._iT2, gx + tw - 1, panelW - gx - tw)
 end
 
+-- ================= UPDATED TAB POSITIONS (with shrinking) =================
 local function updateTabPositions(win)
     local numTabs = #win.Tabs
     if numTabs == 0 then return end
 
     local panelW = win.Canvas.Size.X.Offset - 20
-    local tabSp = win._tabSp or 2
-    local tabW = 81
+    local tabSp = 2
+    local minTabWidth = 40
+    local maxTabWidth = 100
 
-    local totalGaps = math.max(0, numTabs - 1) * tabSp
-    local tabsTotal = numTabs * tabW + totalGaps
+    -- Compute tab width to fit in panelW
+    local tabWidth = math.floor((panelW - (numTabs - 1) * tabSp) / numTabs)
+    tabWidth = math.clamp(tabWidth, minTabWidth, maxTabWidth)
 
-    win._tabW = tabW
+    -- If even minTabWidth doesn't fit, we just use minTabWidth and let overflow happen
+    -- but we don't want to exceed maxTabWidth
+    local tabsTotal = numTabs * tabWidth + (numTabs - 1) * tabSp
+
+    win._tabW = tabWidth
+    win._tabSp = tabSp
     win._tabsTotal = tabsTotal
 
+    -- Center the tab host in the panel
     win.TabHost.Size = UDim2.fromOffset(tabsTotal, win._tabH)
     win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - tabsTotal) / 2), 40 - win._tabH)
 
+    -- Update each tab button and label
     for i, tab in ipairs(win.Tabs) do
-        local x = (i - 1) * (tabW + tabSp)
+        local x = (i - 1) * (tabWidth + tabSp)
         tab.Button.Position = UDim2.fromOffset(x, 0)
-        tab.Button.Size = UDim2.fromOffset(tabW, win._tabH)
+        tab.Button.Size = UDim2.fromOffset(tabWidth, win._tabH)
+
+        -- Update label text size based on tab width
+        local label = tab.Label
+        if label then
+            local newSize = 13
+            if tabWidth < 60 then newSize = 10
+            elseif tabWidth < 45 then newSize = 8 end
+            label.TextSize = newSize
+        end
+
+        -- Also update the outer/inner frames to match width (they are parented to button, so they should auto-size if we set size relative to button)
+        -- But they are sized with UDim2.new(1,0, ...) so they already stretch.
     end
 
     syncTabGap(win)
 end
 
+-- ================= UI INPUT HELPERS =================
 local function isTouchOrMouse(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
@@ -688,7 +711,7 @@ local function addResizeHandles(canvas, onResize, clampFn)
     end
 end
 
--- ================= WINDOW (with drag clamp) =================
+-- ================= WINDOW (with drag clamp and dynamic tabs) =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -762,12 +785,12 @@ function Library:Window(opts)
     local iT2 = new("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.fromOffset(0,1), ZIndex = 2}, panel)
     Library:RegisterTheme(iT2, "BackgroundColor3", "ContentInner")
 
-    local TAB_W, TAB_H, TAB_SP = 81, 18, 2
-    local tabsTotal = TAB_W * 4 + TAB_SP * 3
+    local TAB_H = 18
     local tabHost = new("Frame", {
         Name = "Tabs", BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabsTotal) / 2), 40 - TAB_H),
-        Size = UDim2.fromOffset(tabsTotal, TAB_H), ZIndex = 4,
+        Position = UDim2.fromOffset(10, 40 - TAB_H),
+        Size = UDim2.fromOffset(0, TAB_H), -- will be updated
+        ZIndex = 4,
     }, canvas)
 
     local pageHost = new("Frame", {
@@ -788,9 +811,9 @@ function Library:Window(opts)
 
     local window = setmetatable({
         Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
-        Tabs = {}, ActiveTab = nil, _tabW = TAB_W, _tabH = TAB_H, _tabSp = TAB_SP,
+        Tabs = {}, ActiveTab = nil, _tabW = 81, _tabH = TAB_H, _tabSp = 2,
         _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
-        _tabsTotal = tabsTotal,
+        _tabsTotal = 0,
     }, {__index = Library._WindowMethods})
 
     -- Clamp function to keep window on screen
@@ -840,7 +863,7 @@ function Library:Window(opts)
     end
 
     addResizeHandles(canvas, function()
-        -- onResize callback – already calls clamp inside handles
+        -- onResize – clampCanvas already called inside handles
     end, clampCanvas)
 
     -- Also clamp on screen size changes (device rotation, etc.)
@@ -1928,7 +1951,6 @@ function Library:CreateUICustomization(tab, side)
         if Library._UpdateResizeVisibility then
             Library._UpdateResizeVisibility()
         end
-        -- Clamp the window when toggling expansion (in case it's off-screen)
         if tab.Window and tab.Window._clamp then
             tab.Window._clamp()
         end
