@@ -1,5 +1,5 @@
--- ============================================================
--- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND
+-- ================= ============================================
+-- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND & RESIZE LIMITS
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -12,7 +12,6 @@ local Players     = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 local CONFIG_FOLDER = "Lunex.lol"
-local SCREEN_PADDING = 20  -- keeps UI from touching screen edges
 
 -- ================= HELPERS =================
 local function ensureFolder()
@@ -357,8 +356,9 @@ local function closeAllPopups()
     end
 end
 
-local MIN_SIZE = Vector2.new(360, 360)
-local MAX_SIZE = Vector2.new(800, 800)
+-- Default fallback sizing limits
+local DEFAULT_MIN_SIZE = Vector2.new(360, 360)
+local DEFAULT_MAX_SIZE = Vector2.new(800, 800)
 
 -- ================= TAB MANAGEMENT =================
 local function syncTabGap(win)
@@ -380,55 +380,32 @@ local function syncTabGap(win)
     seg(win._iT2, gx + tw - 1, panelW - gx - tw)
 end
 
--- ================= UPDATED TAB POSITIONS (with shrinking) =================
 local function updateTabPositions(win)
     local numTabs = #win.Tabs
     if numTabs == 0 then return end
 
     local panelW = win.Canvas.Size.X.Offset - 20
-    local tabSp = 2
-    local minTabWidth = 40
-    local maxTabWidth = 100
+    local tabSp = win._tabSp or 2
+    local tabW = 81
 
-    -- Compute tab width to fit in panelW
-    local tabWidth = math.floor((panelW - (numTabs - 1) * tabSp) / numTabs)
-    tabWidth = math.clamp(tabWidth, minTabWidth, maxTabWidth)
+    local totalGaps = math.max(0, numTabs - 1) * tabSp
+    local tabsTotal = numTabs * tabW + totalGaps
 
-    -- If even minTabWidth doesn't fit, we just use minTabWidth and let overflow happen
-    -- but we don't want to exceed maxTabWidth
-    local tabsTotal = numTabs * tabWidth + (numTabs - 1) * tabSp
-
-    win._tabW = tabWidth
-    win._tabSp = tabSp
+    win._tabW = tabW
     win._tabsTotal = tabsTotal
 
-    -- Center the tab host in the panel
     win.TabHost.Size = UDim2.fromOffset(tabsTotal, win._tabH)
     win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - tabsTotal) / 2), 40 - win._tabH)
 
-    -- Update each tab button and label
     for i, tab in ipairs(win.Tabs) do
-        local x = (i - 1) * (tabWidth + tabSp)
+        local x = (i - 1) * (tabW + tabSp)
         tab.Button.Position = UDim2.fromOffset(x, 0)
-        tab.Button.Size = UDim2.fromOffset(tabWidth, win._tabH)
-
-        -- Update label text size based on tab width
-        local label = tab.Label
-        if label then
-            local newSize = 13
-            if tabWidth < 60 then newSize = 10
-            elseif tabWidth < 45 then newSize = 8 end
-            label.TextSize = newSize
-        end
-
-        -- Also update the outer/inner frames to match width (they are parented to button, so they should auto-size if we set size relative to button)
-        -- But they are sized with UDim2.new(1,0, ...) so they already stretch.
+        tab.Button.Size = UDim2.fromOffset(tabW, win._tabH)
     end
 
     syncTabGap(win)
 end
 
--- ================= UI INPUT HELPERS =================
 local function isTouchOrMouse(i)
     return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch
 end
@@ -646,8 +623,11 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
--- ================= RESIZE HANDLES (with screen clamp) =================
-local function addResizeHandles(canvas, onResize, clampFn)
+-- ================= RESIZE HANDLES (WITH EXPANSION LIMITS) =================
+local function addResizeHandles(canvas, onResize, minSize, maxSize)
+    minSize = minSize or DEFAULT_MIN_SIZE
+    maxSize = maxSize or DEFAULT_MAX_SIZE
+
     local T = 8
     local host = new("Frame", {
         Name = "ResizeHost", BackgroundTransparency = 1, Active = false,
@@ -695,15 +675,23 @@ local function addResizeHandles(canvas, onResize, clampFn)
             if not active or not isMoveInput(i) or not Library.UIExpansion then return end
             local curPos = Vector2.new(i.Position.X, i.Position.Y)
             local d = curPos - startInput
-            local w = math.clamp(startSize.X + e.sx * d.X, MIN_SIZE.X, MAX_SIZE.X)
-            local ht = math.clamp(startSize.Y + e.sy * d.Y, MIN_SIZE.Y, MAX_SIZE.Y)
+
+            -- Dynamically limit size to screen viewport so it never expands off screen
+            local cam = workspace.CurrentCamera
+            local screenBounds = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+            local effectiveMaxX = math.min(maxSize.X, screenBounds.X - 20)
+            local effectiveMaxY = math.min(maxSize.Y, screenBounds.Y - 20)
+
+            local w = math.clamp(startSize.X + e.sx * d.X, minSize.X, effectiveMaxX)
+            local ht = math.clamp(startSize.Y + e.sy * d.Y, minSize.Y, effectiveMaxY)
             local ox = (e.sx < 0) and (startSize.X - w) or 0
             local oy = (e.sy < 0) and (startSize.Y - ht) or 0
+
             canvas.Size = UDim2.fromOffset(w, ht)
             canvas.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + ox,
                 startPos.Y.Scale, startPos.Y.Offset + oy)
-            if clampFn then clampFn() end
+            if onResize then onResize() end
         end)
         UIS.InputEnded:Connect(function(i)
             if isTouchOrMouse(i) then active = false end
@@ -711,10 +699,12 @@ local function addResizeHandles(canvas, onResize, clampFn)
     end
 end
 
--- ================= WINDOW (with drag clamp and dynamic tabs) =================
+-- ================= WINDOW =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
+    local minSize = opts.MinSize or DEFAULT_MIN_SIZE
+    local maxSize = opts.MaxSize or DEFAULT_MAX_SIZE
 
     local canvas = new("CanvasGroup", {
         Name              = "Window",
@@ -785,12 +775,12 @@ function Library:Window(opts)
     local iT2 = new("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.fromOffset(0,1), ZIndex = 2}, panel)
     Library:RegisterTheme(iT2, "BackgroundColor3", "ContentInner")
 
-    local TAB_H = 18
+    local TAB_W, TAB_H, TAB_SP = 81, 18, 2
+    local tabsTotal = TAB_W * 4 + TAB_SP * 3
     local tabHost = new("Frame", {
         Name = "Tabs", BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10, 40 - TAB_H),
-        Size = UDim2.fromOffset(0, TAB_H), -- will be updated
-        ZIndex = 4,
+        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabsTotal) / 2), 40 - TAB_H),
+        Size = UDim2.fromOffset(tabsTotal, TAB_H), ZIndex = 4,
     }, canvas)
 
     local pageHost = new("Frame", {
@@ -809,35 +799,6 @@ function Library:Window(opts)
         AutoButtonColor = false,
     }, canvas)
 
-    local window = setmetatable({
-        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
-        Tabs = {}, ActiveTab = nil, _tabW = 81, _tabH = TAB_H, _tabSp = 2,
-        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
-        _tabsTotal = 0,
-    }, {__index = Library._WindowMethods})
-
-    -- Clamp function to keep window on screen
-    local function clampCanvas()
-        local screenSize = screenGui.AbsoluteSize
-        if screenSize.X == 0 or screenSize.Y == 0 then return end
-
-        local w = canvas.Size.X.Offset
-        local h = canvas.Size.Y.Offset
-        local posX = canvas.Position.X.Offset
-        local posY = canvas.Position.Y.Offset
-
-        w = math.clamp(w, MIN_SIZE.X, math.min(MAX_SIZE.X, screenSize.X - SCREEN_PADDING))
-        h = math.clamp(h, MIN_SIZE.Y, math.min(MAX_SIZE.Y, screenSize.Y - SCREEN_PADDING))
-
-        posX = math.clamp(posX, SCREEN_PADDING - w, screenSize.X - SCREEN_PADDING)
-        posY = math.clamp(posY, SCREEN_PADDING - h, screenSize.Y - SCREEN_PADDING)
-
-        canvas.Size = UDim2.fromOffset(w, h)
-        canvas.Position = UDim2.new(0, posX, 0, posY)
-        updateTabPositions(window)
-    end
-    window._clamp = clampCanvas
-
     do
         local dragging, startPos, startInput
         dragZone.InputBegan:Connect(function(i)
@@ -850,11 +811,7 @@ function Library:Window(opts)
             if dragging and isMoveInput(i) then
                 local curPos = Vector2.new(i.Position.X, i.Position.Y)
                 local d = curPos - startInput
-                canvas.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + d.X,
-                    startPos.Y.Scale, startPos.Y.Offset + d.Y
-                )
-                clampCanvas()
+                canvas.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
             end
         end)
         UIS.InputEnded:Connect(function(i)
@@ -862,12 +819,16 @@ function Library:Window(opts)
         end)
     end
 
-    addResizeHandles(canvas, function()
-        -- onResize – clampCanvas already called inside handles
-    end, clampCanvas)
+    local window = setmetatable({
+        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
+        Tabs = {}, ActiveTab = nil, _tabW = TAB_W, _tabH = TAB_H, _tabSp = TAB_SP,
+        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
+        _tabsTotal = tabsTotal,
+    }, {__index = Library._WindowMethods})
 
-    -- Also clamp on screen size changes (device rotation, etc.)
-    screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(clampCanvas)
+    addResizeHandles(canvas, function()
+        updateTabPositions(window)
+    end, minSize, maxSize)
 
     return window
 end
@@ -1671,462 +1632,6 @@ function Library:CreateWatermark(opts)
     vGradient(fill, "HeaderTop", "HeaderBottom")
     local strip = new("Frame", {BackgroundTransparency = 1, Position = UDim2.fromOffset(PAD - 2, 0), Size = UDim2.new(1,-(PAD-2),1,0), ZIndex = 401}, fill)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0,GAP), SortOrder = Enum.SortOrder.LayoutOrder}, strip)
-    for i, p in ipairs(parts) do
-        outlined(strip, p.t, p.cKey or p.c, { AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, H - 4), TextTruncate = Enum.TextTruncate.None, LayoutOrder = i, ZIndex = 401 })
-    end
-    local grab = new("TextButton", { Name = "Drag", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 402 }, host)
-    local dragging, startPos, startInput = false, nil, nil
-    grab.InputBegan:Connect(function(i)
-        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); closeAllPopups() end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMoveInput(i) then
-            local curPos = Vector2.new(i.Position.X, i.Position.Y)
-            local d = curPos - startInput
-            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i) if isTouchOrMouse(i) then dragging = false end end)
-    return host
 end
 
--- ================= MOBILE TOGGLE =================
-function Library:CreateMobileToggle(onToggle)
-    local host = new("Frame", { Name = "MobileToggle", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.new(0, 15, 0.4, 0), Size = UDim2.fromOffset(42, 42), ZIndex = 600 }, screenGui)
-    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600}, host)
-    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
-    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 600}, host)
-    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-    local btn = new("TextButton", { Name = "ToggleBtn", Text = "UI", TextColor3 = Library.Theme.Accent, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 601, AutoButtonColor = false }, fill)
-    applyFont(btn, true)
-    Library:RegisterTheme(btn, "TextColor3", "Accent")
-    local dragging, startPos, startInput = false, nil, nil
-    local moved = false
-    btn.InputBegan:Connect(function(i)
-        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); moved = false end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMoveInput(i) then
-            local curPos = Vector2.new(i.Position.X, i.Position.Y)
-            local d = curPos - startInput
-            if d.Magnitude > 5 then moved = true end
-            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if isTouchOrMouse(i) then if dragging and not moved then if onToggle then onToggle() end end; dragging = false end
-    end)
-    return host
-end
-
--- ================= CURSOR =================
-local function makeCursor()
-    local S = 11; local C = math.floor(S/2)
-    local gui = new("ScreenGui", {
-        Name = "cursor",
-        IgnoreGuiInset = true,
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        DisplayOrder = 2147483647
-    }, guiParent())
-    local host = new("Frame", {
-        Name = "Cross",
-        BackgroundTransparency = 1,
-        Active = false,
-        AnchorPoint = Vector2.new(0.5,0.5),
-        Size = UDim2.fromOffset(S,S),
-        Visible = false,
-        ZIndex = 1
-    }, gui)
-    local function noInput(o)
-        o.Active = false
-        pcall(function() o.Interactable = false end)
-    end
-    noInput(host)
-    local function bar(colorC,x,y,w,h,z)
-        local color = type(colorC) == "string" and Library.Theme[colorC] or colorC
-        local f = new("Frame", {
-            BackgroundColor3 = color,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(x,y),
-            Size = UDim2.fromOffset(w,h),
-            ZIndex = z
-        }, host)
-        noInput(f)
-        if type(colorC) == "string" then
-            Library:RegisterTheme(f, "BackgroundColor3", colorC)
-        end
-    end
-    bar("OuterBorder",0,C-1,S,3,1)
-    bar("OuterBorder",C-1,0,3,S,1)
-    bar("TextActive",1,C,S-2,1,2)
-    bar("TextActive",C,1,1,S-2,2)
-    return host
-end
-
-Library.CursorEnabled = not UIS.TouchEnabled
-local cursor = makeCursor()
-local cursorConns = {}
-
-local function moveCursor()
-    local m = UIS:GetMouseLocation()
-    cursor.Position = UDim2.fromOffset(m.X, m.Y)
-end
-
-local function setCursorEnabled(on)
-    on = on and Library.CursorEnabled
-    cursor.Visible = on
-    if not UIS.TouchEnabled then
-        UIS.MouseIconEnabled = not on
-    end
-    if on and #cursorConns == 0 then
-        moveCursor()
-        cursorConns[1] = RunService.RenderStepped:Connect(moveCursor)
-        cursorConns[2] = UIS.InputChanged:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseMovement then
-                moveCursor()
-            end
-        end)
-    elseif not on and #cursorConns > 0 then
-        for _, c in ipairs(cursorConns) do
-            c:Disconnect()
-        end
-        table.clear(cursorConns)
-    end
-end
-
--- ================= BIND TOGGLE =================
-function Library:BindToggle(window)
-    local visible = true
-    setCursorEnabled(true)
-    local function toggleUI()
-        visible = not visible
-        closeAllPopups()
-        setCursorEnabled(visible)
-        if visible then
-            window.Canvas.Visible = true
-        end
-        local tw = TweenService:Create(window.Canvas, TweenInfo.new(0.30, Enum.EasingStyle.Cubic, visible and Enum.EasingDirection.Out or Enum.EasingDirection.In), {
-            GroupTransparency = visible and 0 or 1
-        })
-        tw:Play()
-        if not visible then
-            tw.Completed:Connect(function()
-                window.Canvas.Visible = false
-            end)
-        end
-    end
-    UIS.InputBegan:Connect(function(i, gp)
-        if not gp and i.KeyCode == Library.ToggleKey then
-            toggleUI()
-        end
-    end)
-    Library:CreateMobileToggle(toggleUI)
-end
-
--- ================= BUILT-IN CONFIG MANAGER =================
-function Library:CreateConfigManager(tab, side)
-    local group = tab:Group("Config Manager", side or "left")
-
-    local cfgNameBox = group:TextBox("Config Name", "my_config", nil, "_cfg_name")
-
-    local function refreshConfigs()
-        local list = Library:GetSavedConfigs() or {"none"}
-        if cfgCombo and cfgCombo.Refresh then
-            cfgCombo:Refresh(list)
-            cfgCombo:Set(1, false)
-        end
-    end
-
-    local cfgCombo = group:Combo("Saved Configs", Library:GetSavedConfigs() or {"none"}, 1, function(idx, name)
-        if name and name ~= "none" then cfgNameBox:Set(name) end
-    end, "_cfg_selected")
-
-    group:Button("Save Config", function()
-        local name = cfgNameBox:Get()
-        if name and name ~= "" then
-            Library:SaveConfig(name)
-            print("Saved config:", name)
-            refreshConfigs()
-        end
-    end)
-
-    group:Button("Load Config", function()
-        local _, name = cfgCombo:Get()
-        if name and name ~= "none" then
-            Library:LoadConfig(name)
-            print("Loaded config:", name)
-        end
-    end)
-
-    group:Button("Delete Config", function()
-        local _, name = cfgCombo:Get()
-        if name and name ~= "none" then
-            Library:DeleteConfig(name)
-            print("Deleted config:", name)
-            refreshConfigs()
-        end
-    end)
-
-    group:Button("Set Auto Load", function()
-        local name = cfgNameBox:Get()
-        if name and name ~= "" and name ~= "none" then
-            Library:SetAutoLoad(name)
-            print("Auto-load set to:", name)
-        end
-    end)
-
-    group:Button("Reset to Defaults", function()
-        Library:ResetToDefaults()
-        print("↻ Reset to defaults")
-    end)
-
-    return group
-end
-
--- ================= BUILT-IN THEME MANAGER =================
-function Library:CreateThemeManager(tab, side)
-    local group = tab:Group("Theme Manager", side or "right")
-
-    local themeNameBox = group:TextBox("Theme Name", "my_theme", nil, "_theme_name")
-
-    group:Combo("Preset Theme", {"Default", "Tokyo Night", "Crimson", "Emerald"}, 1, function(idx, name)
-        Library:SetPresetTheme(name)
-        print("Theme:", name)
-    end, "_theme_preset")
-
-    local function refreshThemes()
-        local list = Library:GetSavedThemes() or {"none"}
-        if themeCombo and themeCombo.Refresh then
-            themeCombo:Refresh(list)
-            themeCombo:Set(1, false)
-        end
-    end
-
-    local themeCombo = group:Combo("Saved Themes", Library:GetSavedThemes() or {"none"}, 1, function(idx, name)
-        if name and name ~= "none" then themeNameBox:Set(name) end
-    end, "_theme_saved")
-
-    group:Button("Save Custom Theme", function()
-        local name = themeNameBox:Get()
-        if name and name ~= "" then
-            Library:SaveTheme(name)
-            print("Saved theme:", name)
-            refreshThemes()
-        end
-    end)
-
-    group:Button("Load Custom Theme", function()
-        local _, name = themeCombo:Get()
-        if name and name ~= "none" then
-            Library:LoadTheme(name)
-            print("Loaded theme:", name)
-        end
-    end)
-
-    group:Button("Delete Custom Theme", function()
-        local _, name = themeCombo:Get()
-        if name and name ~= "none" then
-            Library:DeleteTheme(name)
-            print("Deleted theme:", name)
-            refreshThemes()
-        end
-    end)
-
-    group:Button("Reset Theme to Default", function()
-        Library:ResetThemeToDefault()
-        print("↻ Reset theme")
-    end)
-
-    return group
-end
-
--- ================= BUILT-IN UI CUSTOMIZATION =================
-function Library:CreateUICustomization(tab, side)
-    local group = tab:Group("UI Customization", side or "left")
-
-    group:Checkbox("UI Expansion (Resize)", Library.UIExpansion, function(val)
-        Library.UIExpansion = val
-        if Library._UpdateResizeVisibility then
-            Library._UpdateResizeVisibility()
-        end
-        if tab.Window and tab.Window._clamp then
-            tab.Window._clamp()
-        end
-    end, nil, "_ui_expansion")
-
-    local leftText = Library.WatermarkOptions.leftText or "Lunex UI"
-    local rightText = Library.WatermarkOptions.rightText or "v1.0"
-    local leftColor = Library.WatermarkOptions.leftColor or Library.Theme.TextActive
-    local rightColor = Library.WatermarkOptions.rightColor or Library.Theme.Accent
-
-    group:Checkbox("Show Watermark", Library.WatermarkVisible, function(val)
-        Library.WatermarkVisible = val
-        Library:_UpdateWatermark()
-    end, nil, "_watermark_visible")
-
-    group:TextBox("Left Text", leftText, function(str)
-        Library.WatermarkOptions.leftText = str
-        Library:_UpdateWatermark()
-    end, "_watermark_left_text")
-
-    group:ColorPicker("Left Color", leftColor, function(col)
-        Library.WatermarkOptions.leftColor = col
-        Library:_UpdateWatermark()
-    end, "_watermark_left_color")
-
-    group:TextBox("Right Text", rightText, function(str)
-        Library.WatermarkOptions.rightText = str
-        Library:_UpdateWatermark()
-    end, "_watermark_right_text")
-
-    group:ColorPicker("Right Color", rightColor, function(col)
-        Library.WatermarkOptions.rightColor = col
-        Library:_UpdateWatermark()
-    end, "_watermark_right_color")
-
-    group:Label("────────── Theme Colors ──────────")
-
-    group:ColorPicker("Accent", Library.Theme.Accent, function(col)
-        Library.Theme.Accent = col
-        Library.Theme.AccentDark = Color3.new(col.R*0.7, col.G*0.7, col.B*0.7)
-        Library:RefreshTheme()
-    end, "_ui_accent")
-
-    group:ColorPicker("Text Active", Library.Theme.TextActive, function(col)
-        Library.Theme.TextActive = col
-        Library:RefreshTheme()
-    end, "_ui_text_active")
-
-    group:ColorPicker("Text Inactive", Library.Theme.TextInactive, function(col)
-        Library.Theme.TextInactive = col
-        Library:RefreshTheme()
-    end, "_ui_text_inactive")
-
-    group:ColorPicker("Panel Background", Library.Theme.PanelFill, function(col)
-        Library.Theme.PanelFill = col
-        Library:RefreshTheme()
-    end, "_ui_panel_fill")
-
-    group:ColorPicker("Content Background", Library.Theme.ContentFill, function(col)
-        Library.Theme.ContentFill = col
-        Library:RefreshTheme()
-    end, "_ui_content_fill")
-
-    group:ColorPicker("Group Background", Library.Theme.ChildFill, function(col)
-        Library.Theme.ChildFill = col
-        Library:RefreshTheme()
-    end, "_ui_child_fill")
-
-    group:ColorPicker("Header Top", Library.Theme.HeaderTop, function(col)
-        Library.Theme.HeaderTop = col
-        Library:RefreshTheme()
-    end, "_ui_header_top")
-
-    group:ColorPicker("Header Bottom", Library.Theme.HeaderBottom, function(col)
-        Library.Theme.HeaderBottom = col
-        Library:RefreshTheme()
-    end, "_ui_header_bottom")
-
-    group:ColorPicker("Outer Border", Library.Theme.OuterBorder, function(col)
-        Library.Theme.OuterBorder = col
-        Library:RefreshTheme()
-    end, "_ui_outer_border")
-
-    group:ColorPicker("Inner Border", Library.Theme.InnerBorder, function(col)
-        Library.Theme.InnerBorder = col
-        Library:RefreshTheme()
-    end, "_ui_inner_border")
-
-    group:ColorPicker("Tab Inactive", Library.Theme.TabInactive, function(col)
-        Library.Theme.TabInactive = col
-        Library:RefreshTheme()
-    end, "_ui_tab_inactive")
-
-    group:ColorPicker("Tab Hover", Library.Theme.TabHover, function(col)
-        Library.Theme.TabHover = col
-        Library:RefreshTheme()
-    end, "_ui_tab_hover")
-
-    return group
-end
-
--- ================= WATERMARK UPDATE =================
-Library.WatermarkVisible = false
-Library.WatermarkOptions = {}
-Library._WatermarkHost = nil
-
-function Library:_UpdateWatermark()
-    local opts = Library.WatermarkOptions or {}
-    local leftColor = opts.leftColor or Library.Theme.TextActive
-    local rightColor = opts.rightColor or Library.Theme.Accent
-    local leftText = opts.leftText or "Lunex UI"
-    local rightText = opts.rightText or "v1.0"
-    local buildText = opts.buildText or "build: " .. os.date("%b %d %Y")
-
-    if Library._WatermarkHost then
-        Library._WatermarkHost:Destroy()
-        Library._WatermarkHost = nil
-    end
-
-    if not Library.WatermarkVisible then return end
-
-    local PAD, GAP, H = 8, 4, 21
-    local parts = {
-        {t = leftText,  color = leftColor},
-        {t = rightText, color = rightColor},
-        {t = buildText, color = Color3.fromRGB(100,100,100)},
-    }
-    local total = PAD * 2
-    for i, p in ipairs(parts) do
-        total = total + TextService:GetTextSize(p.t, TEXT_SIZE, FONT, Vector2.new(10000, 100)).X
-        if i < #parts then total = total + GAP end
-    end
-    local host = new("Frame", { Name = "Watermark", BackgroundColor3 = Library.Theme.OuterBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(10, 55), Size = UDim2.fromOffset(math.ceil(total), H), ZIndex = 400 }, screenGui)
-    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-    local fInner = new("Frame", {BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 400}, host)
-    Library:RegisterTheme(fInner, "BackgroundColor3", "InnerBorder")
-    local fill = new("Frame", {BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 400}, host)
-    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-    vGradient(fill, "HeaderTop", "HeaderBottom")
-    local strip = new("Frame", {BackgroundTransparency = 1, Position = UDim2.fromOffset(PAD - 2, 0), Size = UDim2.new(1,-(PAD-2),1,0), ZIndex = 401}, fill)
-    new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0,GAP), SortOrder = Enum.SortOrder.LayoutOrder}, strip)
-    for i, p in ipairs(parts) do
-        local lbl = new("TextLabel", {
-            BackgroundTransparency = 1,
-            Text = p.t,
-            TextColor3 = p.color,
-            TextSize = TEXT_SIZE,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Center,
-            TextStrokeColor3 = Library.Theme.OuterBorder,
-            TextStrokeTransparency = STROKE_T,
-            TextTruncate = Enum.TextTruncate.None,
-            AutomaticSize = Enum.AutomaticSize.X,
-            Size = UDim2.fromOffset(0, H - 4),
-            LayoutOrder = i,
-            ZIndex = 401,
-        }, strip)
-        applyFont(lbl, false)
-        Library:RegisterTheme(lbl, "TextStrokeColor3", "OuterBorder")
-    end
-    local grab = new("TextButton", { Name = "Drag", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 402 }, host)
-    local dragging, startPos, startInput = false, nil, nil
-    grab.InputBegan:Connect(function(i)
-        if isTouchOrMouse(i) then dragging, startPos, startInput = true, host.Position, Vector2.new(i.Position.X, i.Position.Y); closeAllPopups() end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and isMoveInput(i) then
-            local curPos = Vector2.new(i.Position.X, i.Position.Y)
-            local d = curPos - startInput
-            host.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i) if isTouchOrMouse(i) then dragging = false end end)
-
-    Library._WatermarkHost = host
-end
-
--- ================= RETURN =================
 return Library
