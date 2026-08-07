@@ -1,419 +1,88 @@
 -- ============================================================
--- LUNEX UI LIBRARY - COMPLETE FEATURE DEMO
+-- LUNEX UI - MOBILE FRIENDLY (with inline color pickers)
 -- ============================================================
 
 local Lunex = loadstring(game:HttpGet("https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/main/Lunex.lua"))()
 
--- Create main window
 local win = Lunex:Window({
-    Size = Vector2.new(600, 550),
-    TitleLeft = "My Script ",
-    TitleRight = "v3.0"
+    Size = Vector2.new(380, 480),  -- even smaller for mobile
+    TitleLeft = "Cheat ",
+    TitleRight = "v1.0"
 })
 
 -- ============================================================
--- TAB 1: MAIN
+-- TAB 1: AIM
 -- ============================================================
-local main = win:Tab("Main")
+local aim = win:Tab("Aim")
 
--- ===== LEFT GROUP =====
-local left = main:Group("General Settings", "left")
+local aa = aim:Group("Aim Assist", "left")
+aa:CheckboxKeybind("Aim Assist", true, Enum.KeyCode.Q, nil, "aim_enabled")
+aa:TextBox("X Pred", "0.5", nil, "aim_x_pred")
+aa:TextBox("Y Pred", "0.3", nil, "aim_y_pred")
+aa:Combo("Target", {"Namecall","Index","Raycast"}, 1, nil, "aim_target")
+aa:Checkbox("Resolver", false, nil, nil, "aim_resolver")
 
-left:Checkbox("Enable Script", true, function(val)
-    print("✅ Script enabled:", val)
-end, nil, "script_enabled")
-
-left:Checkbox("Auto Save", false, function(val)
-    print("✅ Auto save:", val)
-end, nil, "auto_save")
-
-left:Slider("Sensitivity", {
-    min = 0.1,
-    max = 10.0,
-    default = 1.0,
-    decimals = 2,
-    suffix = "x"
-}, function(val)
-    print("✅ Sensitivity:", val)
-end, "sensitivity")
-
-left:Slider("FOV", {
-    min = 60,
-    max = 120,
-    default = 90,
-    int = true,
-    suffix = "°"
-}, function(val)
-    print("✅ FOV:", val)
-end, "fov")
-
-left:Combo("Game Mode", {"Normal", "Hard", "Expert", "Insane"}, 1, function(idx, text)
-    print("✅ Mode:", text)
-end, "game_mode")
-
-left:MultiCombo("Enabled Features", {"Aimbot", "ESP", "Triggerbot", "Anti-AFK"}, {true, false, true, false}, function(states)
-    print("✅ Features:", states)
-end, "features")
-
--- ===== RIGHT GROUP =====
-local right = main:Group("Advanced", "right")
-
-right:TextBox("Player Name", "default", function(str)
-    print("✅ Name:", str)
-end, "player_name")
-
-right:TextBox("Command", "", function(str)
-    if str ~= "" then
-        print("✅ Command executed:", str)
-    end
-end, "command")
-
-right:Button("Execute Command", function()
-    local cmd = Lunex.Controls.command:Get()
-    if cmd and cmd ~= "" then
-        print("✅ Executed:", cmd)
-    else
-        print("⚠️ No command entered")
-    end
-end)
-
-right:Button("Print All Flags", function()
-    print("\n📋 ALL FLAGS:")
-    for k, v in pairs(Lunex.Flags) do
-        if type(v) == "table" then
-            print("  " .. k .. ": [table]")
-        else
-            print("  " .. k .. ": " .. tostring(v))
-        end
-    end
-    print("")
-end)
-
-right:Keybind("Toggle Key", Enum.KeyCode.F, function(key)
-    print("✅ Keybind:", key)
-end, "toggle_key")
-
-right:CheckboxKeybind("Fly Mode", false, Enum.KeyCode.G, function(state)
-    print("✅ Fly mode:", state)
-end, "fly_mode")
-
-right:ColorPicker("Accent Color", Color3.fromRGB(200, 68, 240), function(col)
-    Lunex.Theme.Accent = col
-    Lunex.Theme.AccentDark = Color3.new(col.R * 0.7, col.G * 0.7, col.B * 0.7)
-    Lunex:RefreshTheme()
-    print("✅ Accent updated")
-end, "custom_accent")
-
-right:Label("────────────────────")
-right:Label("This is a static label")
-right:Label("No interaction possible")
+local sa = aim:Group("Silent Aim", "right")
+sa:CheckboxKeybind("Silent Aim", false, Enum.KeyCode.E, nil, "silent_enabled")
+sa:TextBox("X Pred", "0.7", nil, "silent_x_pred")
+sa:TextBox("Y Pred", "0.4", nil, "silent_y_pred")
+sa:Combo("Target", {"Namecall","Index","Raycast"}, 1, nil, "silent_target")
+sa:Checkbox("Resolver", true, nil, nil, "silent_resolver")
 
 -- ============================================================
--- TAB 2: VISUALS
+-- TAB 2: ESP (toggle + color picker on each line!)
 -- ============================================================
-local vis = win:Tab("Visuals")
+local esp = win:Tab("ESP")
 
--- ===== LEFT GROUP =====
-local visLeft = vis:Group("Appearance", "left")
+local espGroup = esp:Group("ESP", "left")
 
-visLeft:Checkbox("Show Watermark", true, function(val)
-    print("✅ Watermark:", val)
-end, nil, "watermark_visible")
+-- Each checkbox has a color swatch beside it
+espGroup:Checkbox("ESP Toggle", true, nil, nil, "esp_enabled")
 
-visLeft:Checkbox("Show Crosshair", true, function(val)
-    print("✅ Crosshair:", val)
-end, nil, "crosshair")
+espGroup:Checkbox("Name ESP", true, nil, {
+    colors = {
+        {default = Color3.fromRGB(255,255,255), flag = "esp_name_color"}
+    }
+}, "esp_name")
 
-visLeft:Slider("UI Opacity", {
-    min = 0.3,
-    max = 1.0,
-    default = 0.9,
-    decimals = 2
-}, function(val)
-    print("✅ Opacity:", val)
-end, "ui_opacity")
+espGroup:Checkbox("Tracer ESP", true, nil, {
+    colors = {
+        {default = Color3.fromRGB(0,255,0), flag = "esp_tracer_color"}
+    }
+}, "esp_tracer")
 
-visLeft:Slider("UI Scale", {
-    min = 80,
-    max = 120,
-    default = 100,
-    int = true,
-    suffix = "%"
-}, function(val)
-    print("✅ Scale:", val)
-end, "ui_scale")
+espGroup:Checkbox("Box ESP", false, nil, {
+    colors = {
+        {default = Color3.fromRGB(255,0,0), flag = "esp_box_color"}
+    }
+}, "esp_box")
 
-visLeft:ColorPicker("UI Background", Lunex.Theme.PanelFill, function(col)
-    Lunex.Theme.PanelFill = col
-    Lunex:RefreshTheme()
-    print("✅ Background updated")
-end, "ui_background")
+espGroup:Checkbox("Distance ESP", true, nil, {
+    colors = {
+        {default = Color3.fromRGB(255,255,0), flag = "esp_distance_color"}
+    }
+}, "esp_distance")
 
--- ===== RIGHT GROUP =====
-local visRight = vis:Group("Effects", "right")
-
-visRight:Checkbox("Bloom", false, function(val)
-    print("✅ Bloom:", val)
-end, nil, "bloom")
-
-visRight:Checkbox("Chromatic Aberration", true, function(val)
-    print("✅ Chromatic aberration:", val)
-end, nil, "chroma")
-
-visRight:Checkbox("Motion Blur", false, function(val)
-    print("✅ Motion blur:", val)
-end, nil, "motion_blur")
-
-visRight:Slider("Brightness", {
-    min = 0.5,
-    max = 2.0,
-    default = 1.0,
-    decimals = 2
-}, function(val)
-    print("✅ Brightness:", val)
-end, "brightness")
-
-visRight:Combo("Visual Quality", {"Low", "Medium", "High", "Ultra"}, 3, function(idx, text)
-    print("✅ Quality:", text)
-end, "visual_quality")
+espGroup:Checkbox("Health ESP", true, nil, {
+    colors = {
+        {default = Color3.fromRGB(0,255,0), flag = "esp_health_color"}
+    }
+}, "esp_health")
 
 -- ============================================================
 -- TAB 3: CONFIG
 -- ============================================================
 local cfg = win:Tab("Config")
 
--- ===== LEFT GROUP: Configs =====
-local cfgLeft = cfg:Group("Config Management", "left")
-
-local cfgNameBox = cfgLeft:TextBox("Config Name", "my_config", nil, "cfg_name")
-
-cfgLeft:Button("💾 Save Config", function()
-    local name = cfgNameBox:Get()
-    if name and name ~= "" then
-        Lunex:SaveConfig(name)
-        print("✅ Saved config:", name)
-        refreshConfigs()
-    end
-end)
-
--- Config combo
-local configs = Lunex:GetSavedConfigs() or {"none"}
-local cfgCombo = cfgLeft:Combo("📂 Saved Configs", configs, 1, function(idx, name)
-    if name and name ~= "none" then
-        cfgNameBox:Set(name)
-    end
-end, "cfg_selected")
-
--- Refresh function
-local function refreshConfigs()
-    local newList = Lunex:GetSavedConfigs() or {"none"}
-    if cfgCombo and cfgCombo.Refresh then
-        cfgCombo:Refresh(newList)
-        cfgCombo:Set(1, false)
-    end
-end
-
-cfgLeft:Button("Load Config", function()
-    local _, name = cfgCombo:Get()
-    if name and name ~= "none" then
-        Lunex:LoadConfig(name)
-        print("✅ Loaded config:", name)
-    else
-        print("No config selected")
-    end
-end)
-
-cfgLeft:Button("Delete Config", function()
-    local _, name = cfgCombo:Get()
-    if name and name ~= "none" then
-        Lunex:DeleteConfig(name)
-        print("Deleted config:", name)
-        refreshConfigs()
-    else
-        print("No config selected")
-    end
-end)
-
-cfgLeft:Button("Reset to Defaults", function()
-    Lunex:ResetToDefaults()
-    print("↻ Reset to defaults")
-end)
-
-cfgLeft:Button("Set Auto Load", function()
-    local name = cfgNameBox:Get()
-    if name and name ~= "" and name ~= "none" then
-        Lunex:SetAutoLoad(name)
-        print("Auto-load set to:", name)
-    else
-        print("Invalid config name")
-    end
-end)
-
--- ===== RIGHT GROUP: Themes =====
-local cfgRight = cfg:Group("Theme Management", "right")
-
-cfgRight:Combo(" Preset Theme", {"Default", "Tokyo Night", "Crimson", "Emerald"}, 1, function(idx, name)
-    Lunex:SetPresetTheme(name)
-    print(" Theme:", name)
-end, "theme_preset")
-
-local themeNameBox = cfgRight:TextBox("Theme File Name", "my_theme", nil, "theme_name")
-
--- Theme combo
-local themes = Lunex:GetSavedThemes() or {"none"}
-local themeCombo = cfgRight:Combo(" Saved Themes", themes, 1, function(idx, name)
-    if name and name ~= "none" then
-        themeNameBox:Set(name)
-    end
-end, "theme_saved")
-
-local function refreshThemes()
-    local newList = Lunex:GetSavedThemes() or {"none"}
-    if themeCombo and themeCombo.Refresh then
-        themeCombo:Refresh(newList)
-        themeCombo:Set(1, false)
-    end
-end
-
-cfgRight:Button(" Save Custom Theme", function()
-    local name = themeNameBox:Get()
-    if name and name ~= "" then
-        Lunex:SaveTheme(name)
-        print("✅ Saved theme:", name)
-        refreshThemes()
-    end
-end)
-
-cfgRight:Button(" Load Custom Theme", function()
-    local _, name = themeCombo:Get()
-    if name and name ~= "none" then
-        Lunex:LoadTheme(name)
-        print("✅ Loaded theme:", name)
-    else
-        print(" No theme selected")
-    end
-end)
-
-cfgRight:Button(" Delete Custom Theme", function()
-    local _, name = themeCombo:Get()
-    if name and name ~= "none" then
-        Lunex:DeleteTheme(name)
-        print(" Deleted theme:", name)
-        refreshThemes()
-    else
-        print(" No theme selected")
-    end
-end)
-
-cfgRight:Button(" Reset Theme to Default", function()
-    Lunex:ResetThemeToDefault()
-    print("↻ Reset theme")
-end)
+Lunex:CreateConfigManager(cfg, "left")
+Lunex:CreateThemeManager(cfg, "right")
+Lunex:CreateUICustomization(cfg, "left")  -- stacks under config
 
 -- ============================================================
--- TAB 4: UI CUSTOMIZATION
+-- WATERMARK & TOGGLE
 -- ============================================================
-local ui = win:Tab("UI")
-
--- ===== LEFT GROUP =====
-local uiLeft = ui:Group("UI Settings", "left")
-
-uiLeft:Checkbox("UI Expansion (Resize)", Lunex.UIExpansion, function(val)
-    Lunex.UIExpansion = val
-    if Lunex._UpdateResizeVisibility then
-        Lunex._UpdateResizeVisibility()
-    end
-    print("✅ UI Expansion:", val)
-end, nil, "ui_expansion")
-
-uiLeft:ColorPicker("Accent", Lunex.Theme.Accent, function(col)
-    Lunex.Theme.Accent = col
-    Lunex.Theme.AccentDark = Color3.new(col.R * 0.7, col.G * 0.7, col.B * 0.7)
-    Lunex:RefreshTheme()
-    print("✅ Accent updated")
-end, "ui_accent")
-
-uiLeft:ColorPicker("Text Active", Lunex.Theme.TextActive, function(col)
-    Lunex.Theme.TextActive = col
-    Lunex:RefreshTheme()
-    print("✅ Text active updated")
-end, "ui_text_active")
-
-uiLeft:ColorPicker("Text Inactive", Lunex.Theme.TextInactive, function(col)
-    Lunex.Theme.TextInactive = col
-    Lunex:RefreshTheme()
-    print("✅ Text inactive updated")
-end, "ui_text_inactive")
-
-uiLeft:ColorPicker("Panel Background", Lunex.Theme.PanelFill, function(col)
-    Lunex.Theme.PanelFill = col
-    Lunex:RefreshTheme()
-    print("✅ Panel background updated")
-end, "ui_panel_fill")
-
-uiLeft:ColorPicker("Content Background", Lunex.Theme.ContentFill, function(col)
-    Lunex.Theme.ContentFill = col
-    Lunex:RefreshTheme()
-    print("✅ Content background updated")
-end, "ui_content_fill")
-
--- ===== RIGHT GROUP =====
-local uiRight = ui:Group("Theme Colors", "right")
-
-uiRight:ColorPicker("Group Background", Lunex.Theme.ChildFill, function(col)
-    Lunex.Theme.ChildFill = col
-    Lunex:RefreshTheme()
-    print("✅ Group background updated")
-end, "ui_child_fill")
-
-uiRight:ColorPicker("Header Top", Lunex.Theme.HeaderTop, function(col)
-    Lunex.Theme.HeaderTop = col
-    Lunex:RefreshTheme()
-    print("✅ Header top updated")
-end, "ui_header_top")
-
-uiRight:ColorPicker("Header Bottom", Lunex.Theme.HeaderBottom, function(col)
-    Lunex.Theme.HeaderBottom = col
-    Lunex:RefreshTheme()
-    print("✅ Header bottom updated")
-end, "ui_header_bottom")
-
-uiRight:ColorPicker("Outer Border", Lunex.Theme.OuterBorder, function(col)
-    Lunex.Theme.OuterBorder = col
-    Lunex:RefreshTheme()
-    print("✅ Outer border updated")
-end, "ui_outer_border")
-
-uiRight:ColorPicker("Inner Border", Lunex.Theme.InnerBorder, function(col)
-    Lunex.Theme.InnerBorder = col
-    Lunex:RefreshTheme()
-    print("✅ Inner border updated")
-end, "ui_inner_border")
-
-uiRight:ColorPicker("Tab Inactive", Lunex.Theme.TabInactive, function(col)
-    Lunex.Theme.TabInactive = col
-    Lunex:RefreshTheme()
-    print("✅ Tab inactive updated")
-end, "ui_tab_inactive")
-
-uiRight:ColorPicker("Tab Hover", Lunex.Theme.TabHover, function(col)
-    Lunex.Theme.TabHover = col
-    Lunex:RefreshTheme()
-    print("✅ Tab hover updated")
-end, "ui_tab_hover")
-
--- ============================================================
--- FINAL SETUP
--- ============================================================
-
--- Bind toggle key (Insert)
+Lunex:CreateWatermark({ leftText = "Cheat", rightText = "v1.0" })
 Lunex:BindToggle(win)
-
--- Check for auto-load config
 Lunex:CheckAutoLoad()
 
-print("\n" .. string.rep("=", 50))
-print("✅ LUNEX UI LIBRARY - COMPLETE DEMO")
-print("📌 Press Insert to toggle UI")
-print("📌 All features are working!")
-print(string.rep("=", 50) .. "\n")
+print("✅ Mobile UI loaded – Press Insert to toggle")
