@@ -12,6 +12,7 @@ local Players     = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 local CONFIG_FOLDER = "Lunex.lol"
+local SCREEN_PADDING = 20  -- keeps UI from touching screen edges
 
 -- ================= HELPERS =================
 local function ensureFolder()
@@ -622,8 +623,8 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
--- ================= RESIZE HANDLES =================
-local function addResizeHandles(canvas, onResize)
+-- ================= RESIZE HANDLES (with screen clamp) =================
+local function addResizeHandles(canvas, onResize, clampFn)
     local T = 8
     local host = new("Frame", {
         Name = "ResizeHost", BackgroundTransparency = 1, Active = false,
@@ -679,7 +680,7 @@ local function addResizeHandles(canvas, onResize)
             canvas.Position = UDim2.new(
                 startPos.X.Scale, startPos.X.Offset + ox,
                 startPos.Y.Scale, startPos.Y.Offset + oy)
-            if onResize then onResize() end
+            if clampFn then clampFn() end
         end)
         UIS.InputEnded:Connect(function(i)
             if isTouchOrMouse(i) then active = false end
@@ -687,7 +688,7 @@ local function addResizeHandles(canvas, onResize)
     end
 end
 
--- ================= WINDOW =================
+-- ================= WINDOW (with drag clamp) =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -785,6 +786,35 @@ function Library:Window(opts)
         AutoButtonColor = false,
     }, canvas)
 
+    local window = setmetatable({
+        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
+        Tabs = {}, ActiveTab = nil, _tabW = TAB_W, _tabH = TAB_H, _tabSp = TAB_SP,
+        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
+        _tabsTotal = tabsTotal,
+    }, {__index = Library._WindowMethods})
+
+    -- Clamp function to keep window on screen
+    local function clampCanvas()
+        local screenSize = screenGui.AbsoluteSize
+        if screenSize.X == 0 or screenSize.Y == 0 then return end
+
+        local w = canvas.Size.X.Offset
+        local h = canvas.Size.Y.Offset
+        local posX = canvas.Position.X.Offset
+        local posY = canvas.Position.Y.Offset
+
+        w = math.clamp(w, MIN_SIZE.X, math.min(MAX_SIZE.X, screenSize.X - SCREEN_PADDING))
+        h = math.clamp(h, MIN_SIZE.Y, math.min(MAX_SIZE.Y, screenSize.Y - SCREEN_PADDING))
+
+        posX = math.clamp(posX, SCREEN_PADDING - w, screenSize.X - SCREEN_PADDING)
+        posY = math.clamp(posY, SCREEN_PADDING - h, screenSize.Y - SCREEN_PADDING)
+
+        canvas.Size = UDim2.fromOffset(w, h)
+        canvas.Position = UDim2.new(0, posX, 0, posY)
+        updateTabPositions(window)
+    end
+    window._clamp = clampCanvas
+
     do
         local dragging, startPos, startInput
         dragZone.InputBegan:Connect(function(i)
@@ -797,7 +827,11 @@ function Library:Window(opts)
             if dragging and isMoveInput(i) then
                 local curPos = Vector2.new(i.Position.X, i.Position.Y)
                 local d = curPos - startInput
-                canvas.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+                canvas.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + d.X,
+                    startPos.Y.Scale, startPos.Y.Offset + d.Y
+                )
+                clampCanvas()
             end
         end)
         UIS.InputEnded:Connect(function(i)
@@ -805,16 +839,12 @@ function Library:Window(opts)
         end)
     end
 
-    local window = setmetatable({
-        Canvas = canvas, TabHost = tabHost, PageHost = pageHost,
-        Tabs = {}, ActiveTab = nil, _tabW = TAB_W, _tabH = TAB_H, _tabSp = TAB_SP,
-        _oT1 = oT1, _oT2 = oT2, _iT1 = iT1, _iT2 = iT2,
-        _tabsTotal = tabsTotal,
-    }, {__index = Library._WindowMethods})
-
     addResizeHandles(canvas, function()
-        updateTabPositions(window)
-    end)
+        -- onResize callback – already calls clamp inside handles
+    end, clampCanvas)
+
+    -- Also clamp on screen size changes (device rotation, etc.)
+    screenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(clampCanvas)
 
     return window
 end
@@ -1897,6 +1927,10 @@ function Library:CreateUICustomization(tab, side)
         Library.UIExpansion = val
         if Library._UpdateResizeVisibility then
             Library._UpdateResizeVisibility()
+        end
+        -- Clamp the window when toggling expansion (in case it's off-screen)
+        if tab.Window and tab.Window._clamp then
+            tab.Window._clamp()
         end
     end, nil, "_ui_expansion")
 
