@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND (FIXED)
+-- LUNEX UI LIBRARY - COMPLETE WITH CHECKBOXKEYBIND + DYNAMIC TABS
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -359,7 +359,7 @@ end
 local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
--- ================= TAB MANAGEMENT =================
+-- ================= TAB MANAGEMENT (DYNAMIC WIDTH) =================
 local function syncTabGap(win)
     local tab = win.ActiveTab
     if not tab then return end
@@ -385,16 +385,17 @@ local function updateTabPositions(win)
 
     local panelW = win.Canvas.Size.X.Offset - 20
     local tabSp = win._tabSp or 2
-    local tabW = 81
+    local minTabW = 81  -- minimum tab width for readability
 
-    local totalGaps = math.max(0, numTabs - 1) * tabSp
-    local tabsTotal = numTabs * tabW + totalGaps
+    -- Calculate tab width to fill the panel, with a minimum of 81px
+    local availableForTabs = panelW - (numTabs - 1) * tabSp
+    local tabW = math.max(minTabW, availableForTabs / numTabs)
 
     win._tabW = tabW
-    win._tabsTotal = tabsTotal
+    win._tabsTotal = numTabs * tabW + (numTabs - 1) * tabSp
 
-    win.TabHost.Size = UDim2.fromOffset(tabsTotal, win._tabH)
-    win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - tabsTotal) / 2), 40 - win._tabH)
+    win.TabHost.Size = UDim2.fromOffset(win._tabsTotal, win._tabH)
+    win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - win._tabsTotal) / 2), 40 - win._tabH)
 
     for i, tab in ipairs(win.Tabs) do
         local x = (i - 1) * (tabW + tabSp)
@@ -622,7 +623,7 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
--- ================= RESIZE HANDLES (FIXED) =================
+-- ================= RESIZE HANDLES =================
 local function addResizeHandles(canvas, onResize, windowRef)
     local T = 8
     local host = new("Frame", {
@@ -672,7 +673,6 @@ local function addResizeHandles(canvas, onResize, windowRef)
             local curPos = Vector2.new(i.Position.X, i.Position.Y)
             local d = curPos - startInput
 
-            -- FIX: use the window's dynamic minimum width
             local minW = windowRef and windowRef:GetMinWidth() or MIN_SIZE.X
             local w = math.clamp(startSize.X + e.sx * d.X, minW, MAX_SIZE.X)
             local ht = math.clamp(startSize.Y + e.sy * d.Y, MIN_SIZE.Y, MAX_SIZE.Y)
@@ -815,23 +815,19 @@ function Library:Window(opts)
         _tabsTotal = tabsTotal,
     }, {__index = Library._WindowMethods})
 
-    -- Add dynamic minimum width method
+    -- Dynamic minimum width based on minimum tab width
     function window:GetMinWidth()
-        local panelPadding = 20  -- 10 left + 10 right
         local tabSp = self._tabSp or 2
-        local tabW = 81
         local numTabs = #self.Tabs
         if numTabs == 0 then return MIN_SIZE.X end
-        local tabsTotal = numTabs * tabW + math.max(0, numTabs - 1) * tabSp
-        -- minimum panel width = tabs + 20px padding
-        local minPanel = tabsTotal + 20
-        -- canvas width = panel + 20 (the panel is offset by 10 on each side)
+        local tabsTotalMin = numTabs * 81 + math.max(0, numTabs - 1) * tabSp
+        local minPanel = tabsTotalMin + 20
         return math.max(MIN_SIZE.X, minPanel + 20)
     end
 
     addResizeHandles(canvas, function()
         updateTabPositions(window)
-    end, window)  -- pass window reference
+    end, window)
 
     return window
 end
