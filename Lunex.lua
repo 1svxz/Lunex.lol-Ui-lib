@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - COMPLETE WITH DYNAMIC TAB WIDTH (EXPAND + SHRINK)
+-- LUNEX UI LIBRARY - TABS WITH SIDE SPACING (MAX WIDTH)
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 
@@ -359,7 +359,7 @@ end
 local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
--- ================= TAB MANAGEMENT (DYNAMIC WIDTH) =================
+-- ================= TAB MANAGEMENT (DYNAMIC WIDTH WITH MAX LIMIT) =================
 local function syncTabGap(win)
     local tab = win.ActiveTab
     if not tab then return end
@@ -385,15 +385,17 @@ local function updateTabPositions(win)
 
     local panelW = win.Canvas.Size.X.Offset - 20
     local tabSp = win._tabSp or 2
-    local minTabW = 50   -- ★ shrink limit: tabs can go down to 50px wide
+    local minTabW = 50
+    local maxTabW = 120   -- ★ tabs won't grow past this, leaving space on sides
 
-    -- Tab width = share of panel width, but never smaller than minTabW
+    -- Calculate tab width: fill panel if possible, but respect min/max
     local availableForTabs = panelW - (numTabs - 1) * tabSp
-    local tabW = math.max(minTabW, availableForTabs / numTabs)
+    local tabW = math.clamp(availableForTabs / numTabs, minTabW, maxTabW)
 
     win._tabW = tabW
     win._tabsTotal = numTabs * tabW + (numTabs - 1) * tabSp
 
+    -- Center the tab host, leaving empty space on left and right
     win.TabHost.Size = UDim2.fromOffset(win._tabsTotal, win._tabH)
     win.TabHost.Position = UDim2.fromOffset(10 + math.floor((panelW - win._tabsTotal) / 2), 40 - win._tabH)
 
@@ -820,7 +822,7 @@ function Library:Window(opts)
         local tabSp = self._tabSp or 2
         local numTabs = #self.Tabs
         if numTabs == 0 then return MIN_SIZE.X end
-        local minTabW = 50   -- ★ same limit as in updateTabPositions
+        local minTabW = 50
         local tabsTotalMin = numTabs * minTabW + math.max(0, numTabs - 1) * tabSp
         local minPanel = tabsTotalMin + 20
         return math.max(MIN_SIZE.X, minPanel + 20)
