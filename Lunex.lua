@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - FULL FIXED WITH REFRESH BUTTONS
+-- LUNEX UI LIBRARY – CONFIGS / THEMES NOW SCAN FOLDERS DIRECTLY
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 local UIS         = game:GetService("UserInputService")
@@ -444,8 +444,7 @@ local function deserializeValue(val)
     return val
 end
 
--- ================= FILE LIST HELPERS =================
--- Scan the actual folder for .json config files (excluding the list file)
+-- ================= DIRECT FOLDER SCANNING (NO INDEX FILES) =================
 local function scanConfigFiles()
     local files = {}
     if not isfolder or not listfiles then return files end
@@ -454,11 +453,13 @@ local function scanConfigFiles()
     local ok, all = pcall(listfiles, path)
     if not ok then return files end
     for _, f in ipairs(all) do
+        -- f is a full path, extract the filename without extension
         local name = f:match("([^\\/]+)%.json$")
-        if name and f:find(path, 1, true) and not f:find("configs_list") then
+        if name and f:find(path, 1, true) and name ~= "configs_list" then
             table.insert(files, name)
         end
     end
+    table.sort(files)
     return files
 end
 
@@ -475,96 +476,11 @@ local function scanThemeFiles()
             table.insert(files, name)
         end
     end
+    table.sort(files)
     return files
 end
 
--- Rebuild the list file based on actual folder contents
-local function rebuildConfigList()
-    local files = scanConfigFiles()
-    saveConfigList(files)
-    return files
-end
-
-local function rebuildThemeList()
-    local files = scanThemeFiles()
-    saveThemeList(files)
-    return files
-end
-
--- The usual get/save list functions (still used)
-local function getConfigList()
-    ensureFolder()
-    local path = CONFIGS_SUBFOLDER .. "/configs_list.json"
-    if not isfile or not readfile then return rebuildConfigList() end
-    if not isfile(path) then return rebuildConfigList() end
-    local ok, content = pcall(readfile, path)
-    if not ok then return rebuildConfigList() end
-    local ok2, decoded = pcall(function() return HttpService:JSONDecode(content) end)
-    if ok2 and type(decoded) == "table" then return decoded end
-    return rebuildConfigList()
-end
-
-local function saveConfigList(list)
-    ensureFolder()
-    local path = CONFIGS_SUBFOLDER .. "/configs_list.json"
-    if writefile then
-        pcall(writefile, path, HttpService:JSONEncode(list))
-    end
-end
-
-local function addConfigName(name)
-    if not name or name == "" then return end
-    local list = getConfigList()
-    for _, n in ipairs(list) do if n == name then return end end
-    table.insert(list, name)
-    saveConfigList(list)
-end
-
-local function removeConfigName(name)
-    local list = getConfigList()
-    for i, n in ipairs(list) do
-        if n == name then table.remove(list, i); break end
-    end
-    saveConfigList(list)
-end
-
-local function getThemeList()
-    ensureFolder()
-    local path = THEMES_SUBFOLDER .. "/themes_list.json"
-    if not isfile or not readfile then return rebuildThemeList() end
-    if not isfile(path) then return rebuildThemeList() end
-    local ok, content = pcall(readfile, path)
-    if not ok then return rebuildThemeList() end
-    local ok2, decoded = pcall(function() return HttpService:JSONDecode(content) end)
-    if ok2 and type(decoded) == "table" then return decoded end
-    return rebuildThemeList()
-end
-
-local function saveThemeList(list)
-    ensureFolder()
-    local path = THEMES_SUBFOLDER .. "/themes_list.json"
-    if writefile then
-        pcall(writefile, path, HttpService:JSONEncode(list))
-    end
-end
-
-local function addThemeName(name)
-    if not name or name == "" then return end
-    local list = getThemeList()
-    for _, n in ipairs(list) do if n == name then return end end
-    table.insert(list, name)
-    saveThemeList(list)
-end
-
-local function removeThemeName(name)
-    local list = getThemeList()
-    for i, n in ipairs(list) do
-        if n == name then table.remove(list, i); break end
-    end
-    saveThemeList(list)
-end
-
--- ================= CONFIG METHODS =================
+-- ================= CONFIG METHODS (no longer touch list files) =================
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensureFolder()
@@ -581,7 +497,6 @@ function Library:SaveConfig(filename)
         end
     end
     pcall(writefile, path, HttpService:JSONEncode(rawData))
-    addConfigName(filename)
 end
 
 function Library:LoadConfig(filename)
@@ -617,7 +532,6 @@ function Library:DeleteConfig(filename)
     local path = CONFIGS_SUBFOLDER .. "/" .. filename .. ".json"
     if isfile(path) then
         pcall(delfile, path)
-        removeConfigName(filename)
     end
 end
 
@@ -660,7 +574,6 @@ function Library:SaveTheme(themeName)
         rawTheme[k] = serializeValue(v)
     end
     pcall(writefile, path, HttpService:JSONEncode(rawTheme))
-    addThemeName(themeName)
 end
 
 function Library:LoadTheme(themeName)
@@ -685,7 +598,6 @@ function Library:DeleteTheme(themeName)
     local path = THEMES_SUBFOLDER .. "/" .. themeName .. "_theme.json"
     if isfile(path) then
         pcall(delfile, path)
-        removeThemeName(themeName)
     end
 end
 
@@ -772,7 +684,7 @@ local function addResizeHandles(canvas, onResize, windowRef)
     end
 end
 
--- ================= WINDOW =================
+-- ================= WINDOW (unchanged) =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -1535,7 +1447,7 @@ function Library._GroupMethods:Label(text)
     outlined(row, text, "TextInactive", {Size = UDim2.fromScale(1,1), ZIndex = 3})
 end
 
--- ================= COLOR PICKER =================
+-- ================= COLOR PICKER (unchanged) =================
 function Library._ColorPicker(parent, pos, startColor, onChange)
     local h, s, v = Color3.toHSV(startColor)
     local W = 150
@@ -1601,7 +1513,7 @@ function Library._ColorPicker(parent, pos, startColor, onChange)
     openPopups[#openPopups+1] = function() blocker:Destroy(); pop:Destroy() end
 end
 
--- ================= BUILT-IN CONFIG MANAGER (with Refresh) =================
+-- ================= BUILT-IN CONFIG MANAGER (scans folder live) =================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
     
@@ -1609,7 +1521,7 @@ function Library:CreateConfigManager(tab, side)
     local nameBox = group:TextBox("Config Name", "my_config", function(str) end, "_cfg_name")
     
     local function refreshDropdown()
-        local list = getConfigList()
+        local list = scanConfigFiles()
         if #list == 0 then list = {"none"} end
         if configCombo and configCombo.Refresh then
             configCombo:Refresh(list)
@@ -1617,7 +1529,7 @@ function Library:CreateConfigManager(tab, side)
         end
     end
     
-    configCombo = group:Combo("Saved Configs", getConfigList(), 1, function(idx, name)
+    configCombo = group:Combo("Saved Configs", scanConfigFiles(), 1, function(idx, name)
         if name and name ~= "none" then
             nameBox:Set(name, false)
         end
@@ -1650,7 +1562,6 @@ function Library:CreateConfigManager(tab, side)
     end)
 
     group:Button("Refresh", function()
-        rebuildConfigList()
         refreshDropdown()
         print("🔄 Config list refreshed")
     end)
@@ -1664,7 +1575,7 @@ function Library:CreateConfigManager(tab, side)
     return group
 end
 
--- ================= BUILT-IN THEME MANAGER (with Refresh) =================
+-- ================= BUILT-IN THEME MANAGER (scans folder live) =================
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
     
@@ -1677,7 +1588,7 @@ function Library:CreateThemeManager(tab, side)
     end, "_theme_preset")
     
     local function refreshDropdown()
-        local list = getThemeList()
+        local list = scanThemeFiles()
         if #list == 0 then list = {"none"} end
         if themeCombo and themeCombo.Refresh then
             themeCombo:Refresh(list)
@@ -1685,7 +1596,7 @@ function Library:CreateThemeManager(tab, side)
         end
     end
     
-    themeCombo = group:Combo("Saved Themes", getThemeList(), 1, function(idx, name)
+    themeCombo = group:Combo("Saved Themes", scanThemeFiles(), 1, function(idx, name)
         if name and name ~= "none" then
             nameBox:Set(name, false)
         end
@@ -1718,7 +1629,6 @@ function Library:CreateThemeManager(tab, side)
     end)
 
     group:Button("Refresh", function()
-        rebuildThemeList()
         refreshDropdown()
         print("🔄 Theme list refreshed")
     end)
