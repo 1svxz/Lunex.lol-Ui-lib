@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - CONFIGS & THEMES IN SEPARATE FOLDERS
+-- LUNEX UI LIBRARY - FULL FIXED WITH REFRESH BUTTONS
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 local UIS         = game:GetService("UserInputService")
@@ -444,17 +444,64 @@ local function deserializeValue(val)
     return val
 end
 
--- ================= FILE LIST HELPERS (now use subfolders) =================
+-- ================= FILE LIST HELPERS =================
+-- Scan the actual folder for .json config files (excluding the list file)
+local function scanConfigFiles()
+    local files = {}
+    if not isfolder or not listfiles then return files end
+    local path = CONFIGS_SUBFOLDER
+    if not isfolder(path) then return files end
+    local ok, all = pcall(listfiles, path)
+    if not ok then return files end
+    for _, f in ipairs(all) do
+        local name = f:match("([^\\/]+)%.json$")
+        if name and f:find(path, 1, true) and not f:find("configs_list") then
+            table.insert(files, name)
+        end
+    end
+    return files
+end
+
+local function scanThemeFiles()
+    local files = {}
+    if not isfolder or not listfiles then return files end
+    local path = THEMES_SUBFOLDER
+    if not isfolder(path) then return files end
+    local ok, all = pcall(listfiles, path)
+    if not ok then return files end
+    for _, f in ipairs(all) do
+        local name = f:match("([^\\/]+)_theme%.json$")
+        if name then
+            table.insert(files, name)
+        end
+    end
+    return files
+end
+
+-- Rebuild the list file based on actual folder contents
+local function rebuildConfigList()
+    local files = scanConfigFiles()
+    saveConfigList(files)
+    return files
+end
+
+local function rebuildThemeList()
+    local files = scanThemeFiles()
+    saveThemeList(files)
+    return files
+end
+
+-- The usual get/save list functions (still used)
 local function getConfigList()
     ensureFolder()
     local path = CONFIGS_SUBFOLDER .. "/configs_list.json"
-    if not isfile or not readfile then return {} end
-    if not isfile(path) then return {} end
+    if not isfile or not readfile then return rebuildConfigList() end
+    if not isfile(path) then return rebuildConfigList() end
     local ok, content = pcall(readfile, path)
-    if not ok then return {} end
+    if not ok then return rebuildConfigList() end
     local ok2, decoded = pcall(function() return HttpService:JSONDecode(content) end)
     if ok2 and type(decoded) == "table" then return decoded end
-    return {}
+    return rebuildConfigList()
 end
 
 local function saveConfigList(list)
@@ -484,13 +531,13 @@ end
 local function getThemeList()
     ensureFolder()
     local path = THEMES_SUBFOLDER .. "/themes_list.json"
-    if not isfile or not readfile then return {} end
-    if not isfile(path) then return {} end
+    if not isfile or not readfile then return rebuildThemeList() end
+    if not isfile(path) then return rebuildThemeList() end
     local ok, content = pcall(readfile, path)
-    if not ok then return {} end
+    if not ok then return rebuildThemeList() end
     local ok2, decoded = pcall(function() return HttpService:JSONDecode(content) end)
     if ok2 and type(decoded) == "table" then return decoded end
-    return {}
+    return rebuildThemeList()
 end
 
 local function saveThemeList(list)
@@ -517,7 +564,7 @@ local function removeThemeName(name)
     saveThemeList(list)
 end
 
--- ================= CONFIG METHODS (now save/load in Configs subfolder) =================
+-- ================= CONFIG METHODS =================
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensureFolder()
@@ -602,7 +649,7 @@ function Library:ResetToDefaults()
     end
 end
 
--- ================= THEME METHODS (now save/load in Themes subfolder) =================
+-- ================= THEME METHODS =================
 function Library:SaveTheme(themeName)
     if not writefile then return end
     ensureFolder()
@@ -725,7 +772,7 @@ local function addResizeHandles(canvas, onResize, windowRef)
     end
 end
 
--- ================= WINDOW (unchanged) =================
+-- ================= WINDOW =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -1554,7 +1601,7 @@ function Library._ColorPicker(parent, pos, startColor, onChange)
     openPopups[#openPopups+1] = function() blocker:Destroy(); pop:Destroy() end
 end
 
--- ================= BUILT-IN CONFIG MANAGER (dropdown uses Configs subfolder) =================
+-- ================= BUILT-IN CONFIG MANAGER (with Refresh) =================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
     
@@ -1601,6 +1648,12 @@ function Library:CreateConfigManager(tab, side)
             refreshDropdown()
         end
     end)
+
+    group:Button("Refresh", function()
+        rebuildConfigList()
+        refreshDropdown()
+        print("🔄 Config list refreshed")
+    end)
     
     group:Button("Reset to Defaults", function()
         Library:ResetToDefaults()
@@ -1611,7 +1664,7 @@ function Library:CreateConfigManager(tab, side)
     return group
 end
 
--- ================= BUILT-IN THEME MANAGER (dropdown uses Themes subfolder) =================
+-- ================= BUILT-IN THEME MANAGER (with Refresh) =================
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
     
@@ -1662,6 +1715,12 @@ function Library:CreateThemeManager(tab, side)
             print("🗑️ Theme deleted:", name)
             refreshDropdown()
         end
+    end)
+
+    group:Button("Refresh", function()
+        rebuildThemeList()
+        refreshDropdown()
+        print("🔄 Theme list refreshed")
     end)
     
     group:Button("Reset Theme to Default", function()
