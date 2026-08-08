@@ -1,5 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY - FULL FIXED CONFIG/THEME DROPDOWNS
+-- LUNEX UI LIBRARY - CONFIGS & THEMES IN SEPARATE FOLDERS
 -- https://github.com/1svxz/Lunex.lol-Ui-lib
 -- ============================================================
 local UIS         = game:GetService("UserInputService")
@@ -11,11 +11,19 @@ local Players     = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
 local CONFIG_FOLDER = "Lunex.lol"
+local CONFIGS_SUBFOLDER = CONFIG_FOLDER .. "/Configs"
+local THEMES_SUBFOLDER = CONFIG_FOLDER .. "/Themes"
 
 -- ================= HELPERS =================
 local function ensureFolder()
     if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
         pcall(makefolder, CONFIG_FOLDER)
+    end
+    if makefolder and isfolder and not isfolder(CONFIGS_SUBFOLDER) then
+        pcall(makefolder, CONFIGS_SUBFOLDER)
+    end
+    if makefolder and isfolder and not isfolder(THEMES_SUBFOLDER) then
+        pcall(makefolder, THEMES_SUBFOLDER)
     end
 end
 
@@ -436,10 +444,10 @@ local function deserializeValue(val)
     return val
 end
 
--- ================= FILE LIST HELPERS =================
+-- ================= FILE LIST HELPERS (now use subfolders) =================
 local function getConfigList()
     ensureFolder()
-    local path = CONFIG_FOLDER .. "/configs_list.json"
+    local path = CONFIGS_SUBFOLDER .. "/configs_list.json"
     if not isfile or not readfile then return {} end
     if not isfile(path) then return {} end
     local ok, content = pcall(readfile, path)
@@ -451,7 +459,7 @@ end
 
 local function saveConfigList(list)
     ensureFolder()
-    local path = CONFIG_FOLDER .. "/configs_list.json"
+    local path = CONFIGS_SUBFOLDER .. "/configs_list.json"
     if writefile then
         pcall(writefile, path, HttpService:JSONEncode(list))
     end
@@ -475,7 +483,7 @@ end
 
 local function getThemeList()
     ensureFolder()
-    local path = CONFIG_FOLDER .. "/themes_list.json"
+    local path = THEMES_SUBFOLDER .. "/themes_list.json"
     if not isfile or not readfile then return {} end
     if not isfile(path) then return {} end
     local ok, content = pcall(readfile, path)
@@ -487,7 +495,7 @@ end
 
 local function saveThemeList(list)
     ensureFolder()
-    local path = CONFIG_FOLDER .. "/themes_list.json"
+    local path = THEMES_SUBFOLDER .. "/themes_list.json"
     if writefile then
         pcall(writefile, path, HttpService:JSONEncode(list))
     end
@@ -509,12 +517,12 @@ local function removeThemeName(name)
     saveThemeList(list)
 end
 
--- ================= CONFIG METHODS (with name list update) =================
+-- ================= CONFIG METHODS (now save/load in Configs subfolder) =================
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensureFolder()
     filename = filename or "default"
-    local path = CONFIG_FOLDER .. "/" .. filename .. ".json"
+    local path = CONFIGS_SUBFOLDER .. "/" .. filename .. ".json"
     local rawData = {}
     for flag, val in pairs(Library.Flags) do
         if type(val) == "table" and not val.__type then
@@ -532,7 +540,7 @@ end
 function Library:LoadConfig(filename)
     if not readfile or not isfile then return end
     filename = filename or "default"
-    local path = CONFIG_FOLDER .. "/" .. filename .. ".json"
+    local path = CONFIGS_SUBFOLDER .. "/" .. filename .. ".json"
     if not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -559,7 +567,7 @@ end
 function Library:DeleteConfig(filename)
     if not delfile or not isfile then return end
     filename = filename or "default"
-    local path = CONFIG_FOLDER .. "/" .. filename .. ".json"
+    local path = CONFIGS_SUBFOLDER .. "/" .. filename .. ".json"
     if isfile(path) then
         pcall(delfile, path)
         removeConfigName(filename)
@@ -570,12 +578,12 @@ function Library:SetAutoLoad(filename)
     if not writefile then return end
     ensureFolder()
     filename = filename or "default"
-    pcall(writefile, CONFIG_FOLDER .. "/autoload.json", HttpService:JSONEncode({autoload = filename}))
+    pcall(writefile, CONFIGS_SUBFOLDER .. "/autoload.json", HttpService:JSONEncode({autoload = filename}))
 end
 
 function Library:CheckAutoLoad()
     ensureFolder()
-    local path = CONFIG_FOLDER .. "/autoload.json"
+    local path = CONFIGS_SUBFOLDER .. "/autoload.json"
     if not isfile or not readfile or not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -594,23 +602,24 @@ function Library:ResetToDefaults()
     end
 end
 
--- ================= THEME METHODS (with name list update) =================
+-- ================= THEME METHODS (now save/load in Themes subfolder) =================
 function Library:SaveTheme(themeName)
     if not writefile then return end
     ensureFolder()
     themeName = themeName or "custom_theme"
+    local path = THEMES_SUBFOLDER .. "/" .. themeName .. "_theme.json"
     local rawTheme = {}
     for k, v in pairs(Library.Theme) do
         rawTheme[k] = serializeValue(v)
     end
-    pcall(writefile, CONFIG_FOLDER .. "/" .. themeName .. "_theme.json", HttpService:JSONEncode(rawTheme))
+    pcall(writefile, path, HttpService:JSONEncode(rawTheme))
     addThemeName(themeName)
 end
 
 function Library:LoadTheme(themeName)
     if not readfile or not isfile then return end
     themeName = themeName or "custom_theme"
-    local path = CONFIG_FOLDER .. "/" .. themeName .. "_theme.json"
+    local path = THEMES_SUBFOLDER .. "/" .. themeName .. "_theme.json"
     if not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -626,7 +635,7 @@ end
 function Library:DeleteTheme(themeName)
     if not delfile or not isfile then return end
     themeName = themeName or "custom_theme"
-    local path = CONFIG_FOLDER .. "/" .. themeName .. "_theme.json"
+    local path = THEMES_SUBFOLDER .. "/" .. themeName .. "_theme.json"
     if isfile(path) then
         pcall(delfile, path)
         removeThemeName(themeName)
@@ -649,7 +658,7 @@ function Library:ResetThemeToDefault()
     Library:RefreshTheme()
 end
 
--- ================= RESIZE HANDLES (FIXED) =================
+-- ================= RESIZE HANDLES (unchanged) =================
 local function addResizeHandles(canvas, onResize, windowRef)
     local T = 8
     local host = new("Frame", {
@@ -716,7 +725,7 @@ local function addResizeHandles(canvas, onResize, windowRef)
     end
 end
 
--- ================= WINDOW =================
+-- ================= WINDOW (unchanged) =================
 function Library:Window(opts)
     opts = opts or {}
     local size = opts.Size or Vector2.new(480, 450)
@@ -1031,7 +1040,7 @@ function Library._TabMethods:Group(title, side)
     return group
 end
 
--- ================= GROUP METHODS (unchanged, but include them for completeness) =================
+-- ================= GROUP METHODS =================
 Library._GroupMethods = {}
 
 local function nextRow(group, height)
@@ -1216,9 +1225,6 @@ function Library._GroupMethods:Slider(text, o, callback, flag)
     if callback and o.default ~= nil then task.spawn(callback, value) end
     return ctrl
 end
-
--- (Include the rest of the group methods: Keybind, Combo, MultiCombo, TextBox, Button, Label, etc. - they are unchanged from the original library.)
--- I'll add them here for completeness.
 
 function Library._GroupMethods:Keybind(text, default, callback, flag)
     local row = nextRow(self, 14)
@@ -1548,7 +1554,7 @@ function Library._ColorPicker(parent, pos, startColor, onChange)
     openPopups[#openPopups+1] = function() blocker:Destroy(); pop:Destroy() end
 end
 
--- ================= BUILT-IN CONFIG MANAGER (with dropdown) =================
+-- ================= BUILT-IN CONFIG MANAGER (dropdown uses Configs subfolder) =================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
     
@@ -1605,7 +1611,7 @@ function Library:CreateConfigManager(tab, side)
     return group
 end
 
--- ================= BUILT-IN THEME MANAGER (with dropdown) =================
+-- ================= BUILT-IN THEME MANAGER (dropdown uses Themes subfolder) =================
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
     
