@@ -1,7 +1,3 @@
--- ============================================================
--- LUNEX UI LIBRARY – CONFIGS / THEMES NOW SCAN FOLDERS DIRECTLY
--- ============================================================
-
 local UserInputService = game:GetService("UserInputService")
 local TweenServ = game:GetService("TweenService")
 local RunServ = game:GetService("RunService")
