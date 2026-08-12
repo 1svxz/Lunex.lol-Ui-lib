@@ -1002,6 +1002,7 @@ function Library._WindowMethods:Tab(name)
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, page)
 
+    -- Left column
     local left_col = new_instance("ScrollingFrame", {
         Name = "LeftCol",
         BackgroundTransparency = 1,
@@ -1016,6 +1017,10 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(left_col, "ScrollBarImageColor3", "Accent")
+    -- Add right padding to keep content away from scrollbar
+    new_instance("UIPadding", {
+        PaddingRight = UDim.new(0, 4), -- match scrollbar thickness
+    }, left_col)
 
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
@@ -1023,6 +1028,7 @@ function Library._WindowMethods:Tab(name)
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, left_col)
 
+    -- Right column
     local right_col = new_instance("ScrollingFrame", {
         Name = "RightCol",
         BackgroundTransparency = 1,
@@ -1037,23 +1043,16 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(right_col, "ScrollBarImageColor3", "Accent")
+    -- Same padding on the right column
+    new_instance("UIPadding", {
+        PaddingRight = UDim.new(0, 4),
+    }, right_col)
 
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         Padding       = UDim.new(0, 6),
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, right_col)
-
-    -- Add a permanent right border on top of the scrollbar
-    local right_edge_border = new_instance("Frame", {
-        Name = "RightColumnBorder",
-        BackgroundColor3 = Library.Theme.ContentOuter,
-        BorderSizePixel = 0,
-        Position = UDim2.new(1, -1, 0, 2), -- right edge of the page, minus 1 pixel, and top padding of 2
-        Size = UDim2.new(0, 1, 1, -4),     -- 1 pixel wide, full height minus top/bottom padding
-        ZIndex = 20,                       -- higher than the scrollbar
-    }, page)
-    Library:RegisterTheme(right_edge_border, "BackgroundColor3", "ContentOuter")
 
     local tab = setmetatable({
         Window   = win,
