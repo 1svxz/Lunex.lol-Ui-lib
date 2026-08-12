@@ -1,3 +1,8 @@
+local Lib = (function()
+-- ============================================================
+-- LUNEX UI LIBRARY – CONFIGS / THEMES NOW SCAN FOLDERS DIRECTLY
+-- ============================================================
+
 local UserInputService = game:GetService("UserInputService")
 local TweenServ = game:GetService("TweenService")
 local RunServ = game:GetService("RunService")
@@ -1904,3 +1909,102 @@ function Lib:BindToggle(window)
 end
 
 return Lib
+end)()
+
+local Window = Lib:Window({
+    TitleLeft = "Lunex",
+    TitleRight = "Hub",
+    Size = Vector2.new(620, 480)
+})
+
+local AimbotTab = Window:Tab("Aimbot")
+local VisualsTab = Window:Tab("Visuals")
+local MovementTab = Window:Tab("Movement")
+local MiscTab = Window:Tab("Misc")
+local SettingsTab = Window:Tab("Settings")
+
+local AimbotGroup = AimbotTab:Group("Aimbot", "left")
+local SilentGroup = AimbotTab:Group("Silent Aim", "right")
+local HitboxGroup = AimbotTab:Group("Hitbox", "left")
+
+local ESPGroup = VisualsTab:Group("Player ESP", "left")
+local WorldGroup = VisualsTab:Group("World", "right")
+local ChamsGroup = VisualsTab:Group("Chams", "left")
+
+local FlyGroup = MovementTab:Group("Fly", "left")
+local SpeedGroup = MovementTab:Group("Speed", "right")
+
+local MiscGroup = MiscTab:Group("Misc", "left")
+local GunGroup = MiscTab:Group("Gun Mods", "right")
+
+local UiGroup = SettingsTab:Group("UI", "left")
+local ConfigGroup = SettingsTab:Group("Config", "right")
+
+AimbotGroup:Checkbox("Aimbot", false, function(state) end, nil, "aimbot_enabled")
+AimbotGroup:Checkbox("Visibility Check", true, function(state) end, nil, "vis_check")
+AimbotGroup:Combo("Aim Part", {"Head", "Torso", "HumanoidRootPart"}, 1, function(idx, name) end, "aim_part")
+AimbotGroup:Slider("Smoothness", {min = 0, max = 1, decimals = 2, default = 0.15}, function(val) end, "aim_smooth")
+AimbotGroup:Slider("FOV", {min = 10, max = 360, default = 90, suffix = "°"}, function(val) end, "aim_fov")
+
+SilentGroup:Checkbox("Silent Aim", false, function(state) end, nil, "silent_enabled")
+SilentGroup:Combo("Method", {"Prediction", "Memory", "Raycast"}, 2, function(idx, name) end, "silent_method")
+SilentGroup:Slider("Chance", {min = 0, max = 100, int = true, suffix = "%", default = 100}, function(val) end, "silent_chance")
+
+HitboxGroup:Checkbox("Expand Hitboxes", false, function(state) end, nil, "hitbox_expand")
+HitboxGroup:Slider("Head Scale", {min = 0, max = 3, decimals = 1, default = 1.5}, function(val) end, "hitbox_head")
+HitboxGroup:Slider("Torso Scale", {min = 0, max = 3, decimals = 1, default = 1.2}, function(val) end, "hitbox_torso")
+
+ESPGroup:Checkbox("Box ESP", false, function(state) end, nil, "esp_box")
+ESPGroup:Checkbox("Name ESP", false, function(state) end, nil, "esp_name")
+ESPGroup:Checkbox("Distance ESP", false, function(state) end, nil, "esp_distance")
+ESPGroup:Checkbox("Health Bar", false, function(state) end, nil, "esp_health")
+ESPGroup:ColorPicker("Box Color", Color3.fromRGB(255, 255, 255), function(c) end, "esp_box_color")
+ESPGroup:ColorPicker("Name Color", Color3.fromRGB(255, 255, 255), function(c) end, "esp_name_color")
+
+WorldGroup:Checkbox("Day / Night", false, function(state) end, nil, "world_time")
+WorldGroup:Slider("Time", {min = 0, max = 24, default = 12}, function(val) end, "world_time_val")
+WorldGroup:Checkbox("Full Bright", false, function(state) end, nil, "fullbright")
+WorldGroup:Slider("FOV Changer", {min = 30, max = 120, default = 70}, function(val) end, "fov_changer")
+
+ChamsGroup:Checkbox("Enable Chams", false, function(state) end, nil, "chams_enabled")
+ChamsGroup:ColorPicker("Visible Color", Color3.fromRGB(0, 255, 0), function(c) end, "chams_visible")
+ChamsGroup:ColorPicker("Invisible Color", Color3.fromRGB(255, 0, 0), function(c) end, "chams_occluded")
+
+FlyGroup:Checkbox("Fly", false, function(state) end, nil, "fly_enabled")
+FlyGroup:Slider("Fly Speed", {min = 1, max = 10, default = 3}, function(val) end, "fly_speed")
+FlyGroup:Keybind("Fly Key", Enum.KeyCode.F, function(k) end, "fly_key")
+
+SpeedGroup:Checkbox("Speed", false, function(state) end, nil, "speed_enabled")
+SpeedGroup:Slider("Walk Speed", {min = 16, max = 100, default = 30}, function(val) end, "ws_value")
+SpeedGroup:Slider("Jump Power", {min = 50, max = 200, default = 75}, function(val) end, "jp_value")
+
+MiscGroup:Checkbox("Anti AFK", true, function(state) end, nil, "anti_afk")
+MiscGroup:Checkbox("Auto Rejoin", false, function(state) end, nil, "auto_rejoin")
+MiscGroup:Button("Rejoin Server", function() end)
+MiscGroup:Label("Premium Features")
+
+GunGroup:Checkbox("No Recoil", false, function(state) end, nil, "no_recoil")
+GunGroup:Checkbox("No Spread", false, function(state) end, nil, "no_spread")
+GunGroup:Checkbox("Infinite Ammo", false, function(state) end, nil, "inf_ammo")
+GunGroup:Slider("Fire Rate", {min = 1, max = 100, int = true, default = 10}, function(val) end, "fire_rate")
+
+UiGroup:Checkbox("UI Expansion", false, function(state)
+    Lib.UIExpansion = state
+    if Lib._UpdateResizeVisibility then Lib._UpdateResizeVisibility() end
+end, nil, "ui_expansion")
+UiGroup:Keybind("Toggle UI", Enum.KeyCode.Insert, function(k) Lib.ToggleKey = k end, "ui_toggle_key")
+
+ConfigGroup:TextBox("Config Name", "da_hood", function(txt) end, "config_name")
+ConfigGroup:Button("Save Config", function()
+    local name = Lib.Controls["config_name"]:Get()
+    if name and name ~= "" then Lib:SaveConfig(name) end
+end)
+ConfigGroup:Button("Load Config", function()
+    local name = Lib.Controls["config_name"]:Get()
+    if name and name ~= "" then Lib:LoadConfig(name) end
+end)
+ConfigGroup:Button("Reset to Defaults", function()
+    Lib:ResetToDefaults()
+end)
+
+Lib:BindToggle(Window)
