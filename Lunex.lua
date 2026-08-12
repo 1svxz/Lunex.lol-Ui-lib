@@ -1016,10 +1016,7 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(left_col, "ScrollBarImageColor3", "Accent")
-    -- Fix: add padding to avoid scrollbar overlap
-    new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 6), -- reserve space for the scrollbar
-    }, left_col)
+    -- No UIPadding – content fills full width, scrollbar will overlay right edge
 
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
@@ -1041,10 +1038,7 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(right_col, "ScrollBarImageColor3", "Accent")
-    -- Fix: same padding for right column
-    new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 6),
-    }, right_col)
+    -- No UIPadding here either
 
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
