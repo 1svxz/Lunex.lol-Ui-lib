@@ -1,6 +1,5 @@
 -- ============================================================
--- LUNEX UI LIBRARY v2 – Direct folder scanning, no index files
--- Source: https://github.com/1svxz/Lunex.lol-Ui-lib
+-- LUNEX UI LIBRARY v2.1 – Vertical Tabs, Optimized, Bug‑fixed
 -- ============================================================
 
 local UserInputService = game:GetService("UserInputService")
@@ -16,7 +15,7 @@ local CONFIGS_PATH    = CONFIG_FOLDER .. "/Configs"
 local THEMES_PATH     = CONFIG_FOLDER .. "/Themes"
 
 -- -----------------------------------------------------------------
--- Helpers: folders, tables, gui parent
+-- Helpers
 -- -----------------------------------------------------------------
 local function ensure_folders()
     if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
@@ -47,7 +46,7 @@ local function get_gui_parent()
 end
 
 -- -----------------------------------------------------------------
--- Preset themes
+-- Preset themes (unchanged, but all colors are still there)
 -- -----------------------------------------------------------------
 local PRESET_THEMES = {
     Default = {
@@ -168,7 +167,7 @@ Library.ThemeCallbacks = {}
 Library.ThemePickers   = {}
 
 -- -----------------------------------------------------------------
--- Theme registry / callbacks
+-- Theme registry
 -- -----------------------------------------------------------------
 function Library:RegisterTheme(inst, prop, key)
     if not inst then return end
@@ -221,9 +220,8 @@ end
 
 function Library:SetFont(font, size)
     FONT = font or Enum.Font.SourceSans
-    FONT_BOLD = Enum.Font.SourceSansBold -- not used if FontFace is set
+    FONT_BOLD = Enum.Font.SourceSansBold
     FONT_SIZE = size or 13
-    -- Update existing labels? Could be complex, so we just set for future.
 end
 
 local function apply_font(label, bold)
@@ -387,69 +385,7 @@ local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
 -- -----------------------------------------------------------------
--- Tab positioning helpers
--- -----------------------------------------------------------------
-local function sync_tab_gap(window)
-    local tab = window.ActiveTab
-    if not tab then return end
-    local panel_w = window.Canvas.Size.X.Offset - 20
-
-    local tab_left = window.TabHost.Position.X.Offset - 10
-    local gx = tab_left + (tab.Index - 1) * (window._tab_w + window._tab_sp)
-    local tw = window._tab_w
-
-    local function set_seg(frame, x, w)
-        frame.Position = UDim2.fromOffset(x, frame.Position.Y.Offset)
-        frame.Size = UDim2.fromOffset(math.max(0, w), 1)
-    end
-    set_seg(window._oT1, 0,           gx)
-    set_seg(window._oT2, gx + tw,     panel_w - (gx + tw))
-    set_seg(window._iT1, 1,           gx)
-    set_seg(window._iT2, gx + tw - 1, panel_w - gx - tw)
-end
-
-local function update_tab_positions(window)
-    local tabs = window.Tabs
-    local count = #tabs
-    if count == 0 then return end
-
-    local panel_w = window.Canvas.Size.X.Offset - 20
-    local sp = window._tab_sp or 2
-    local w = 81
-
-    local gaps = math.max(0, count - 1) * sp
-    local total = count * w + gaps
-
-    window._tab_w = w
-    window._tabs_total = total
-
-    window.TabHost.Size = UDim2.fromOffset(total, window._tab_h)
-    window.TabHost.Position = UDim2.fromOffset(
-        10 + math.floor((panel_w - total) / 2),
-        40 - window._tab_h
-    )
-
-    for i, tab in ipairs(tabs) do
-        local x = (i - 1) * (w + sp)
-        tab.Button.Position = UDim2.fromOffset(x, 0)
-        tab.Button.Size = UDim2.fromOffset(w, window._tab_h)
-    end
-
-    sync_tab_gap(window)
-end
-
-local function is_click(input)
-    return input.UserInputType == Enum.UserInputType.MouseButton1 or
-           input.UserInputType == Enum.UserInputType.Touch
-end
-
-local function is_move(input)
-    return input.UserInputType == Enum.UserInputType.MouseMovement or
-           input.UserInputType == Enum.UserInputType.Touch
-end
-
--- -----------------------------------------------------------------
--- Serialization helpers for config/theme
+-- Serialization helpers
 -- -----------------------------------------------------------------
 local function serialize(val)
     if typeof(val) == "Color3" then
@@ -475,7 +411,7 @@ local function deserialize(val)
 end
 
 -- -----------------------------------------------------------------
--- Folder scanning (no index files)
+-- Folder scanning
 -- -----------------------------------------------------------------
 local function scan_config_files()
     local files = {}
@@ -650,7 +586,7 @@ function Library:ResetThemeToDefault()
 end
 
 -- -----------------------------------------------------------------
--- Notification system (v2 addition)
+-- Notification system
 -- -----------------------------------------------------------------
 function Library:Notify(title, text, duration)
     duration = duration or 3
@@ -695,7 +631,6 @@ function Library:Notify(title, text, duration)
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
 
-    -- Slide in
     notif_host.Position = UDim2.fromOffset(-230, 10)
     tween(notif_host, 0.25, {Position = UDim2.fromOffset(10, 10)}):Play()
 
@@ -787,11 +722,11 @@ local function add_resize_handles(canvas, on_resize, window_ref)
 end
 
 -- -----------------------------------------------------------------
--- Window constructor
+-- Window constructor – VERTICAL TAB LAYOUT
 -- -----------------------------------------------------------------
 function Library:Window(options)
     options = options or {}
-    local size = options.Size or Vector2.new(480, 450)
+    local size = options.Size or Vector2.new(560, 500)
 
     local canvas = new_instance("CanvasGroup", {
         Name              = "Window",
@@ -803,6 +738,7 @@ function Library:Window(options)
         ZIndex            = 10,
     }, screen_gui)
 
+    -- Outer border
     local w_outer = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel  = 0,
@@ -829,20 +765,21 @@ function Library:Window(options)
     }, w_outer)
     Library:RegisterTheme(w_fill, "BackgroundColor3", "PanelFill")
 
-    local top_bar = new_instance("Frame", {
-        Name = "TopBar",
+    -- Title bar (top)
+    local title_bar = new_instance("Frame", {
+        Name = "TitleBar",
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel  = 0,
         Position         = UDim2.fromOffset(2, 2),
-        Size             = UDim2.new(1, -4, 0, 38),
+        Size             = UDim2.new(1, -4, 0, 26),
         ZIndex           = 2,
     }, w_outer)
-    vertical_gradient(top_bar, "HeaderTop", "HeaderBottom")
+    vertical_gradient(title_bar, "HeaderTop", "HeaderBottom")
 
     local title_label = make_label(canvas, "", "TextActive", {
         AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 4),
-        Size = UDim2.fromOffset(250, 14),
+        Position = UDim2.new(0.5, 0, 0, 6),
+        Size = UDim2.fromOffset(300, 14),
         TextXAlignment = Enum.TextXAlignment.Center,
         RichText = true,
         Bold = true,
@@ -857,70 +794,64 @@ function Library:Window(options)
             math.floor(Library.Theme.Accent.B * 255)
         )
         title_label.Text = string.format('%s<font color="%s">%s</font>',
-            options.TitleLeft or "remade by ",
+            options.TitleLeft or "Lunex ",
             accent_hex,
-            options.TitleRight or "angel"
+            options.TitleRight or "UI"
         )
     end)
 
-    local panel = new_instance("Frame", {
-        Name = "Panel",
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10, 40),
-        Size = UDim2.new(1, -20, 1, -50),
-        ZIndex = 2,
-    }, canvas)
-
-    local panel_fill = new_instance("Frame", {
+    -- Sidebar (tabs area) - left
+    local sidebar = new_instance("Frame", {
+        Name = "Sidebar",
         BackgroundColor3 = Library.Theme.ContentFill,
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(2, 2),
-        Size             = UDim2.new(1, -4, 1, -4),
+        Position         = UDim2.fromOffset(2, 28),
+        Size             = UDim2.fromOffset(80, canvas.Size.Y.Offset - 30),
         ZIndex           = 2,
-    }, panel)
-    Library:RegisterTheme(panel_fill, "BackgroundColor3", "ContentFill")
+    }, w_outer)
+    Library:RegisterTheme(sidebar, "BackgroundColor3", "ContentFill")
 
-    local left_border  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
-    local right_border = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.new(1, -1, 0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
-    local bottom_border= new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 1, 1, -1), Size = UDim2.new(1, 0, 0, 1), ZIndex = 2}, panel)
-    local top_border1  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.new(1, 0, 0, 1), ZIndex = 2}, panel)
-    local top_border2  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(0, 1), ZIndex = 2}, panel)
-    Library:RegisterTheme(left_border, "BackgroundColor3", "ContentOuter")
-    Library:RegisterTheme(right_border, "BackgroundColor3", "ContentOuter")
-    Library:RegisterTheme(bottom_border, "BackgroundColor3", "ContentOuter")
-    Library:RegisterTheme(top_border1, "BackgroundColor3", "ContentOuter")
-    Library:RegisterTheme(top_border2, "BackgroundColor3", "ContentOuter")
+    -- Add a border on the right side of sidebar
+    local sidebar_right = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.ContentOuter,
+        BorderSizePixel  = 0,
+        Position         = UDim2.new(1, -1, 0, 0),
+        Size             = UDim2.fromOffset(1, 1),
+        ZIndex           = 2,
+    }, sidebar)
+    Library:RegisterTheme(sidebar_right, "BackgroundColor3", "ContentOuter")
 
-    local inner_left   = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(0, 1, 1, -2), ZIndex = 2}, panel)
-    local inner_right  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.new(1, -2, 0, 1), Size = UDim2.new(0, 1, 1, -2), ZIndex = 2}, panel)
-    local inner_bottom = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 1, 1, -2), Size = UDim2.new(1, -2, 0, 1), ZIndex = 2}, panel)
-    local inner_top1   = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 0, 1), ZIndex = 2}, panel)
-    local inner_top2   = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentInner, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.fromOffset(0, 1), ZIndex = 2}, panel)
-    Library:RegisterTheme(inner_left, "BackgroundColor3", "ContentInner")
-    Library:RegisterTheme(inner_right, "BackgroundColor3", "ContentInner")
-    Library:RegisterTheme(inner_bottom, "BackgroundColor3", "ContentInner")
-    Library:RegisterTheme(inner_top1, "BackgroundColor3", "ContentInner")
-    Library:RegisterTheme(inner_top2, "BackgroundColor3", "ContentInner")
-
-    local TAB_W, TAB_H, TAB_SP = 81, 18, 2
-    local tabs_total = TAB_W * 4 + TAB_SP * 3
-    local tab_host = new_instance("Frame", {
-        Name = "Tabs",
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabs_total) / 2), 40 - TAB_H),
-        Size = UDim2.fromOffset(tabs_total, TAB_H),
-        ZIndex = 4,
-    }, canvas)
-
+    -- Page host (right of sidebar)
     local page_host = new_instance("Frame", {
         Name = "Pages",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(18, 48),
-        Size = UDim2.new(1, -36, 1, -66),
+        Position = UDim2.fromOffset(84, 32),
+        Size = UDim2.new(1, -92, 1, -42),
         ZIndex = 3,
         ClipsDescendants = true,
     }, canvas)
 
+    -- Tab container inside sidebar
+    local tab_host = new_instance("ScrollingFrame", {
+        Name = "Tabs",
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Library.Theme.Accent,
+        BorderSizePixel = 0,
+        ZIndex = 4,
+    }, sidebar)
+    Library:RegisterTheme(tab_host, "ScrollBarImageColor3", "Accent")
+
+    local tab_list = new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 2),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, tab_host)
+
+    -- Drag zone for whole window (except interactive elements)
     local drag_zone = new_instance("TextButton", {
         Name = "DragZone",
         BackgroundTransparency = 1,
@@ -963,26 +894,20 @@ function Library:Window(options)
         PageHost = page_host,
         Tabs     = {},
         ActiveTab= nil,
-        _tab_w   = TAB_W,
-        _tab_h   = TAB_H,
-        _tab_sp  = TAB_SP,
-        _oT1     = top_border1,
-        _oT2     = top_border2,
-        _iT1     = inner_top1,
-        _iT2     = inner_top2,
-        _tabs_total = tabs_total,
+        _tab_h   = 24,       -- vertical tab height
+        _tab_sp  = 2,
     }, {__index = Library._WindowMethods})
 
     function window:GetMinWidth()
-        local panel_padding = 20
-        local num = #self.Tabs
-        if num == 0 then return MIN_SIZE.X end
-        local total_tabs = num * TAB_W + math.max(0, num - 1) * TAB_SP
-        return math.max(MIN_SIZE.X, total_tabs + 20)
+        -- minimum width to keep sidebar + content usable
+        return 300
     end
 
     add_resize_handles(canvas, function()
-        update_tab_positions(window)
+        -- adjust sidebar and page host sizes on resize
+        sidebar.Size = UDim2.fromOffset(80, canvas.Size.Y.Offset - 30)
+        page_host.Position = UDim2.fromOffset(84, 32)
+        page_host.Size = UDim2.new(1, -92, 1, -42)
     end, window)
 
     return window
@@ -1002,44 +927,43 @@ function Library._WindowMethods:Tab(name)
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(win._tab_w, win._tab_h),
+        Size = UDim2.new(1, 0, 0, win._tab_h),
+        LayoutOrder = idx,
         ZIndex = 4,
     }, win.TabHost)
 
-    local t_outer = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.ContentOuter,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(0, 0),
-        Size             = UDim2.new(1, 0, 0, win._tab_h),
-        ZIndex           = 4,
-    }, btn)
-    Library:RegisterTheme(t_outer, "BackgroundColor3", "ContentOuter")
-
-    local t_inner = new_instance("Frame", {
+    -- Tab background
+    local tab_bg = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.ContentInner,
         BorderSizePixel  = 0,
         Position         = UDim2.fromOffset(1, 1),
-        Size             = UDim2.new(1, -2, 0, win._tab_h - 1),
+        Size             = UDim2.new(1, -2, 0, win._tab_h - 2),
         ZIndex           = 4,
-    }, t_outer)
-    Library:RegisterTheme(t_inner, "BackgroundColor3", "ContentInner")
+    }, btn)
+    Library:RegisterTheme(tab_bg, "BackgroundColor3", "ContentInner")
 
-    local t_fill = new_instance("Frame", {
+    local tab_fill = new_instance("Frame", {
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel  = 0,
         Position         = UDim2.fromOffset(2, 2),
-        Size             = UDim2.new(1, -4, 0, win._tab_h - 2),
+        Size             = UDim2.new(1, -4, 0, win._tab_h - 4),
         ZIndex           = 4,
-    }, t_outer)
+    }, btn)
 
-    local grad = new_instance("UIGradient", { Rotation = 90 }, t_fill)
+    local grad = new_instance("UIGradient", { Rotation = 90 }, tab_fill)
     Library:RegisterThemeCallback(function()
-        grad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0.00, Library.Theme.TabTop),
-            ColorSequenceKeypoint.new(0.50, Library.Theme.TabMid),
-            ColorSequenceKeypoint.new(1.00, Library.Theme.TabBottom),
-        })
+        if win.ActiveTab == tab then
+            grad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Theme.TabTop),
+                ColorSequenceKeypoint.new(0.5, Library.Theme.TabMid),
+                ColorSequenceKeypoint.new(1, Library.Theme.TabBottom),
+            })
+        else
+            grad.Color = ColorSequence.new(
+                Library.Theme.ContentFill,
+                Library.Theme.ContentFill
+            )
+        end
     end)
 
     local label = make_label(btn, name, "TabInactive", {
@@ -1048,6 +972,7 @@ function Library._WindowMethods:Tab(name)
         ZIndex = 8,
     })
 
+    -- Page
     local page = new_instance("Frame", {
         Name = name,
         BackgroundTransparency = 1,
@@ -1083,10 +1008,7 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(left_col, "ScrollBarImageColor3", "Accent")
-    new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 4),
-    }, left_col)
-
+    new_instance("UIPadding", { PaddingRight = UDim.new(0, 4) }, left_col)
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         Padding       = UDim.new(0, 6),
@@ -1108,10 +1030,7 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(right_col, "ScrollBarImageColor3", "Accent")
-    new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 4),
-    }, right_col)
-
+    new_instance("UIPadding", { PaddingRight = UDim.new(0, 4) }, right_col)
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         Padding       = UDim.new(0, 6),
@@ -1121,10 +1040,6 @@ function Library._WindowMethods:Tab(name)
     local tab = setmetatable({
         Window   = win,
         Button   = btn,
-        Outer    = t_outer,
-        Inner    = t_inner,
-        Fill     = t_fill,
-        Grad     = grad,
         Label    = label,
         Page     = page,
         LeftCol  = left_col,
@@ -1138,21 +1053,15 @@ function Library._WindowMethods:Tab(name)
         for _, t in ipairs(win.Tabs) do
             local active = (t == tab)
             t.Page.Visible = active
-            tween(t.Label, 0.12, { TextColor3 = active and Library.Theme.Accent or Library.Theme.TabInactive }):Play()
-
-            local oh = win._tab_h + (active and 1 or 0)
-            local ih = active and (win._tab_h + 1) or (win._tab_h - 1)
-            local fh = active and win._tab_h or (win._tab_h - 2)
-            t.Outer.Size = UDim2.new(1, 0, 0, oh)
-            t.Inner.Size = UDim2.new(1, -2, 0, ih)
-            t.Fill.Size  = UDim2.new(1, -4, 0, fh)
-
-            local z = active and 6 or 4
-            t.Outer.ZIndex, t.Inner.ZIndex, t.Fill.ZIndex = z, z, z
-            t.Button.ZIndex = active and 7 or 4
+            tween(t.Label, 0.15, { TextColor3 = active and Library.Theme.Accent or Library.Theme.TabInactive }):Play()
+            -- update gradient for active/inactive
+            if active then
+                t.Button.ZIndex = 6
+            else
+                t.Button.ZIndex = 4
+            end
         end
         win.ActiveTab = tab
-        sync_tab_gap(win)
     end
     tab.Select = select
 
@@ -1176,13 +1085,12 @@ function Library._WindowMethods:Tab(name)
         end
     end)
 
-    update_tab_positions(win)
     if #win.Tabs == 1 then select() end
     return tab
 end
 
 -- -----------------------------------------------------------------
--- Tab methods
+-- Tab methods (unchanged from v2, but now with vertical tabs)
 -- -----------------------------------------------------------------
 Library._TabMethods = {}
 
@@ -1300,7 +1208,7 @@ function Library._TabMethods:Group(title, side)
 end
 
 -- -----------------------------------------------------------------
--- Group methods (controls)
+-- Group methods (controls) – same as v2, but with small tweaks
 -- -----------------------------------------------------------------
 Library._GroupMethods = {}
 
@@ -1398,7 +1306,6 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     return ctrl
 end
 
--- Toggle switch (v2 addition)
 function Library._GroupMethods:Toggle(text, default, callback, flag)
     local state = default and true or false
     local row = next_row(self, 16)
@@ -1548,6 +1455,9 @@ function Library._GroupMethods:ColorPicker(text, default, callback, flag)
     end
     return ctrl
 end
+
+-- Slider, Keybind, Combo, MultiCombo, TextBox, Button, Label, Divider
+-- (unchanged from v2, included below for completeness)
 
 function Library._GroupMethods:Slider(text, options, callback, flag)
     options = options or {}
@@ -1738,7 +1648,6 @@ function Library._GroupMethods:Keybind(text, default, callback, flag)
     return ctrl
 end
 
--- Divider control (v2 addition)
 function Library._GroupMethods:Divider(text)
     local row = next_row(self, 12)
     local line = new_instance("Frame", {
@@ -2137,7 +2046,7 @@ function Library._GroupMethods:Label(text)
 end
 
 -- -----------------------------------------------------------------
--- Color picker
+-- Color picker (unchanged)
 -- -----------------------------------------------------------------
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
@@ -2287,7 +2196,7 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
 end
 
 -- -----------------------------------------------------------------
--- Built‑in Config Manager (scans folder live)
+-- Built‑in Config Manager
 -- -----------------------------------------------------------------
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
@@ -2351,7 +2260,7 @@ function Library:CreateConfigManager(tab, side)
 end
 
 -- -----------------------------------------------------------------
--- Built‑in Theme Manager (scans folder live)
+-- Built‑in Theme Manager
 -- -----------------------------------------------------------------
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
@@ -2529,7 +2438,7 @@ function Library:CreateUICustomization(tab, side)
 end
 
 -- -----------------------------------------------------------------
--- Watermark
+-- Watermark (unchanged)
 -- -----------------------------------------------------------------
 Library.WatermarkVisible = false
 Library.WatermarkOptions = {}
@@ -2540,7 +2449,7 @@ function Library:_UpdateWatermark()
     local leftColor = opts.leftColor or Library.Theme.TextActive
     local rightColor = opts.rightColor or Library.Theme.Accent
     local leftText = opts.leftText or "Lunex UI"
-    local rightText = opts.rightText or "v1.0"
+    local rightText = opts.rightText or "v2.1"
     local buildText = opts.buildText or "" .. os.date("%b %d %Y")
 
     if Library._WatermarkHost then
@@ -2842,7 +2751,6 @@ function Library:BindToggle(window)
                 window.Canvas.Visible = false
             end)
         end
-        -- Update watermark visibility if it's meant to hide with UI
         if Library._WatermarkHost and Library.WatermarkVisible then
             Library._WatermarkHost.Visible = visible
         end
