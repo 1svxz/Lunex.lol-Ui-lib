@@ -1,11 +1,6 @@
 -- ============================================================
--- LUNEX UI LIBRARY – Redesigned Visual System
+-- LUNEX UI LIBRARY – Direct folder scanning, no index files
 -- Source: https://github.com/1svxz/Lunex.lol-Ui-lib
--- ============================================================
--- This version keeps all original functionality and API,
--- but applies a new visual design: compact, dark, sharp,
--- with a professional exploit‑UI aesthetic inspired by the
--- provided reference image.
 -- ============================================================
 
 local UserInputService = game:GetService("UserInputService")
@@ -52,31 +47,31 @@ local function get_gui_parent()
 end
 
 -- -----------------------------------------------------------------
--- Preset themes – redesigned default colours for a sleek, dark look
+-- Preset themes
 -- -----------------------------------------------------------------
 local PRESET_THEMES = {
     Default = {
-        Accent        = Color3.fromRGB(200, 68, 240),   -- purple highlight
+        Accent        = Color3.fromRGB(200, 68, 240),
         AccentDark    = Color3.fromRGB(160, 45, 200),
         TextActive    = Color3.fromRGB(255, 255, 255),
-        TextInactive  = Color3.fromRGB(140, 140, 140),
-        OuterBorder   = Color3.fromRGB(40, 40, 40),      -- dark grey
-        InnerBorder   = Color3.fromRGB(20, 20, 20),
-        PanelFill     = Color3.fromRGB(10, 10, 10),      -- near black
-        ContentOuter  = Color3.fromRGB(40, 40, 40),
-        ContentInner  = Color3.fromRGB(20, 20, 20),
-        ContentFill   = Color3.fromRGB(10, 10, 10),
-        ChildFill     = Color3.fromRGB(14, 14, 14),
-        ComboInner    = Color3.fromRGB(25, 25, 25),
-        ComboFill     = Color3.fromRGB(12, 12, 12),
+        TextInactive  = Color3.fromRGB(136, 136, 136),
+        OuterBorder   = Color3.fromRGB(31, 31, 31),
+        InnerBorder   = Color3.fromRGB(31, 31, 31),
+        PanelFill     = Color3.fromRGB(0, 0, 0),
+        ContentOuter  = Color3.fromRGB(31, 31, 31),
+        ContentInner  = Color3.fromRGB(0, 0, 0),
+        ContentFill   = Color3.fromRGB(0, 0, 0),
+        ChildFill     = Color3.fromRGB(0, 0, 0),
+        ComboInner    = Color3.fromRGB(20, 20, 20),
+        ComboFill     = Color3.fromRGB(0, 0, 0),
         ComboSelected = Color3.fromRGB(200, 68, 240),
-        HeaderTop     = Color3.fromRGB(24, 24, 24),
-        HeaderBottom  = Color3.fromRGB(14, 14, 14),
-        TabTop        = Color3.fromRGB(22, 22, 22),
-        TabMid        = Color3.fromRGB(18, 18, 18),
-        TabBottom     = Color3.fromRGB(14, 14, 14),
-        TabInactive   = Color3.fromRGB(140, 140, 140),
-        TabHover      = Color3.fromRGB(200, 200, 200),
+        HeaderTop     = Color3.fromRGB(18, 18, 18),
+        HeaderBottom  = Color3.fromRGB(0, 0, 0),
+        TabTop        = Color3.fromRGB(31, 31, 31),
+        TabMid        = Color3.fromRGB(15, 15, 15),
+        TabBottom     = Color3.fromRGB(0, 0, 0),
+        TabInactive   = Color3.fromRGB(128, 128, 128),
+        TabHover      = Color3.fromRGB(208, 208, 208),
     },
     ["Tokyo Night"] = {
         Accent        = Color3.fromRGB(187, 154, 247),
@@ -152,7 +147,7 @@ local PRESET_THEMES = {
 local FONT      = Enum.Font.SourceSans
 local FONT_BOLD = Enum.Font.SourceSansBold
 local FONT_FACE = nil
-local FONT_SIZE = 12               -- smaller, more compact
+local FONT_SIZE = 13
 local STROKE_T  = 0.55
 
 -- -----------------------------------------------------------------
@@ -263,8 +258,6 @@ local function make_label(parent, text, color_key_or_color, props)
     return label
 end
 
--- framed_box: creates outer border (1px), inner border (1px), and a fill.
--- We'll keep the structure but make borders thinner (1px each)
 local function framed_box(parent, outer_key, inner_key, fill_key, props)
     local outer_color = type(outer_key) == "string" and Library.Theme[outer_key] or outer_key
     local inner_color = type(inner_key) == "string" and Library.Theme[inner_key] or inner_key
@@ -297,10 +290,10 @@ local function framed_box(parent, outer_key, inner_key, fill_key, props)
         Name             = "Fill",
         BackgroundColor3 = fill_color,
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(1, 1),   -- start 1px inside inner
-        Size             = UDim2.new(1, -2, 1, -2),  -- 2px padding total
+        Position         = UDim2.fromOffset(2, 2),
+        Size             = UDim2.new(1, -4, 1, -4),
         ZIndex           = outer.ZIndex or 1,
-    }, inner)  -- fill inside inner, not outer
+    }, outer)
     if type(fill_key) == "string" then
         Library:RegisterTheme(fill, "BackgroundColor3", fill_key)
     end
@@ -308,7 +301,6 @@ local function framed_box(parent, outer_key, inner_key, fill_key, props)
     return outer, fill
 end
 
--- vertical_gradient: keep but we will use flatter styles where possible
 local function vertical_gradient(frame, top_key, bottom_key, trans_seq)
     frame.BackgroundColor3 = Color3.new(1, 1, 1)
     local grad = new_instance("UIGradient", {
@@ -383,7 +375,7 @@ local function close_all_popups()
     end
 end
 
-local MIN_SIZE = Vector2.new(340, 340)   -- slightly smaller
+local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
 -- -----------------------------------------------------------------
@@ -415,7 +407,7 @@ local function update_tab_positions(window)
 
     local panel_w = window.Canvas.Size.X.Offset - 20
     local sp = window._tab_sp or 2
-    local w = window._tab_w or 78
+    local w = 81
 
     local gaps = math.max(0, count - 1) * sp
     local total = count * w + gaps
@@ -426,7 +418,7 @@ local function update_tab_positions(window)
     window.TabHost.Size = UDim2.fromOffset(total, window._tab_h)
     window.TabHost.Position = UDim2.fromOffset(
         10 + math.floor((panel_w - total) / 2),
-        32 - window._tab_h   -- position just below top bar
+        40 - window._tab_h
     )
 
     for i, tab in ipairs(tabs) do
@@ -650,7 +642,7 @@ function Library:ResetThemeToDefault()
 end
 
 -- -----------------------------------------------------------------
--- Resize handles – unchanged
+-- Resize handles
 -- -----------------------------------------------------------------
 local function add_resize_handles(canvas, on_resize, window_ref)
     local T = 8
@@ -729,7 +721,7 @@ local function add_resize_handles(canvas, on_resize, window_ref)
 end
 
 -- -----------------------------------------------------------------
--- Window constructor – redesigned
+-- Window constructor
 -- -----------------------------------------------------------------
 function Library:Window(options)
     options = options or {}
@@ -745,7 +737,6 @@ function Library:Window(options)
         ZIndex            = 10,
     }, screen_gui)
 
-    -- Main border (outer)
     local w_outer = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel  = 0,
@@ -754,7 +745,6 @@ function Library:Window(options)
     }, canvas)
     Library:RegisterTheme(w_outer, "BackgroundColor3", "OuterBorder")
 
-    -- Inner border
     local w_inner = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.InnerBorder,
         BorderSizePixel  = 0,
@@ -764,39 +754,25 @@ function Library:Window(options)
     }, w_outer)
     Library:RegisterTheme(w_inner, "BackgroundColor3", "InnerBorder")
 
-    -- Panel fill
     local w_fill = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.PanelFill,
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(1, 1),   -- 1px inside inner
-        Size             = UDim2.new(1, -2, 1, -2),
+        Position         = UDim2.fromOffset(2, 2),
+        Size             = UDim2.new(1, -4, 1, -4),
         ZIndex           = 1,
-    }, w_inner)
+    }, w_outer)
     Library:RegisterTheme(w_fill, "BackgroundColor3", "PanelFill")
 
-    -- Top bar – redesigned compact
-    local TOP_BAR_H = 26
     local top_bar = new_instance("Frame", {
         Name = "TopBar",
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(1, 1),   -- inside inner border
-        Size             = UDim2.new(1, -2, 0, TOP_BAR_H),
+        Position         = UDim2.fromOffset(2, 2),
+        Size             = UDim2.new(1, -4, 0, 38),
         ZIndex           = 2,
-    }, w_inner)
+    }, w_outer)
     vertical_gradient(top_bar, "HeaderTop", "HeaderBottom")
 
-    -- Thin accent line at top of window (1px accent)
-    local accent_line = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.Accent,
-        BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(0, 0),
-        Size             = UDim2.new(1, 0, 0, 1),
-        ZIndex           = 3,
-    }, top_bar)
-    Library:RegisterTheme(accent_line, "BackgroundColor3", "Accent")
-
-    -- Title label
     local title_label = make_label(canvas, "", "TextActive", {
         AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, 4),
@@ -806,7 +782,6 @@ function Library:Window(options)
         Bold = true,
         ZIndex = 6,
         TextTruncate = Enum.TextTruncate.AtEnd,
-        TextSize = 13,
     })
 
     Library:RegisterThemeCallback(function()
@@ -822,26 +797,23 @@ function Library:Window(options)
         )
     end)
 
-    -- Main panel (content area)
     local panel = new_instance("Frame", {
         Name = "Panel",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(1, TOP_BAR_H + 1),   -- start after top bar
-        Size = UDim2.new(1, -2, 1, -(TOP_BAR_H + 2)),    -- fill remaining space
+        Position = UDim2.fromOffset(10, 40),
+        Size = UDim2.new(1, -20, 1, -50),
         ZIndex = 2,
-    }, w_inner)
+    }, canvas)
 
-    -- Content fill
     local panel_fill = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.ContentFill,
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(1, 1),       -- 1px inset
-        Size             = UDim2.new(1, -2, 1, -2),
+        Position         = UDim2.fromOffset(2, 2),
+        Size             = UDim2.new(1, -4, 1, -4),
         ZIndex           = 2,
     }, panel)
     Library:RegisterTheme(panel_fill, "BackgroundColor3", "ContentFill")
 
-    -- Borders around panel (using existing border frames)
     local left_border  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
     local right_border = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.new(1, -1, 0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
     local bottom_border= new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 1, 1, -1), Size = UDim2.new(1, 0, 0, 1), ZIndex = 2}, panel)
@@ -864,39 +836,34 @@ function Library:Window(options)
     Library:RegisterTheme(inner_top1, "BackgroundColor3", "ContentInner")
     Library:RegisterTheme(inner_top2, "BackgroundColor3", "ContentInner")
 
-    -- Tabs
-    local TAB_W, TAB_H, TAB_SP = 78, 20, 2
+    local TAB_W, TAB_H, TAB_SP = 81, 18, 2
     local tabs_total = TAB_W * 4 + TAB_SP * 3
     local tab_host = new_instance("Frame", {
         Name = "Tabs",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabs_total) / 2), 32 - TAB_H),
+        Position = UDim2.fromOffset(10 + math.floor(((canvas.Size.X.Offset - 20) - tabs_total) / 2), 40 - TAB_H),
         Size = UDim2.fromOffset(tabs_total, TAB_H),
         ZIndex = 4,
     }, canvas)
 
-    -- Page host
     local page_host = new_instance("Frame", {
         Name = "Pages",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(18, 46),    -- 2px padding from tab area
+        Position = UDim2.fromOffset(18, 48),
         Size = UDim2.new(1, -36, 1, -66),
         ZIndex = 3,
         ClipsDescendants = true,
     }, canvas)
 
-    -- Drag zone – only top bar (use a separate frame)
-    -- We'll create a draggable frame that covers the top bar area.
-    -- It will be a TextButton with transparency, positioned over top_bar.
     local drag_zone = new_instance("TextButton", {
         Name = "DragZone",
         BackgroundTransparency = 1,
         Text = "",
-        Position = UDim2.fromOffset(1, 1),   -- match top_bar position
-        Size = UDim2.new(1, -2, 0, TOP_BAR_H),
-        ZIndex = 3,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 2,
         AutoButtonColor = false,
-    }, w_inner)  -- parent to w_inner to cover top_bar
+    }, canvas)
 
     -- Drag logic
     do
@@ -956,7 +923,7 @@ function Library:Window(options)
 end
 
 -- -----------------------------------------------------------------
--- Window methods – unchanged
+-- Window methods
 -- -----------------------------------------------------------------
 Library._WindowMethods = {}
 
@@ -974,42 +941,45 @@ function Library._WindowMethods:Tab(name)
         ZIndex = 4,
     }, win.TabHost)
 
-    -- Outer border
     local t_outer = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.OuterBorder,
+        BackgroundColor3 = Library.Theme.ContentOuter,
         BorderSizePixel  = 0,
         Position         = UDim2.fromOffset(0, 0),
-        Size             = UDim2.new(1, 0, 1, 0),  -- full height
+        Size             = UDim2.new(1, 0, 0, win._tab_h),
         ZIndex           = 4,
     }, btn)
-    Library:RegisterTheme(t_outer, "BackgroundColor3", "OuterBorder")
+    Library:RegisterTheme(t_outer, "BackgroundColor3", "ContentOuter")
 
-    -- Inner border
     local t_inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
+        BackgroundColor3 = Library.Theme.ContentInner,
         BorderSizePixel  = 0,
         Position         = UDim2.fromOffset(1, 1),
-        Size             = UDim2.new(1, -2, 1, -2),
+        Size             = UDim2.new(1, -2, 0, win._tab_h - 1),
         ZIndex           = 4,
     }, t_outer)
-    Library:RegisterTheme(t_inner, "BackgroundColor3", "InnerBorder")
+    Library:RegisterTheme(t_inner, "BackgroundColor3", "ContentInner")
 
-    -- Fill (background of tab)
     local t_fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.TabTop,  -- will be updated
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel  = 0,
-        Position         = UDim2.fromOffset(1, 1),
-        Size             = UDim2.new(1, -2, 1, -2),
+        Position         = UDim2.fromOffset(2, 2),
+        Size             = UDim2.new(1, -4, 0, win._tab_h - 2),
         ZIndex           = 4,
-    }, t_inner)
-    Library:RegisterTheme(t_fill, "BackgroundColor3", "TabTop")  -- placeholder
+    }, t_outer)
 
-    -- Label
+    local grad = new_instance("UIGradient", { Rotation = 90 }, t_fill)
+    Library:RegisterThemeCallback(function()
+        grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Library.Theme.TabTop),
+            ColorSequenceKeypoint.new(0.50, Library.Theme.TabMid),
+            ColorSequenceKeypoint.new(1.00, Library.Theme.TabBottom),
+        })
+    end)
+
     local label = make_label(btn, name, "TabInactive", {
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0, win._tab_h),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 8,
-        TextSize = 12,
     })
 
     local page = new_instance("Frame", {
@@ -1039,7 +1009,7 @@ function Library._WindowMethods:Tab(name)
         Size = UDim2.new(0.5, -3, 1, 0),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 3,
+        ScrollBarThickness = 4,
         ScrollBarImageColor3 = Library.Theme.Accent,
         LayoutOrder = 1,
         ZIndex = 3,
@@ -1047,9 +1017,11 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(left_col, "ScrollBarImageColor3", "Accent")
+    -- Add right padding to keep content away from scrollbar
     new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 4),
+        PaddingRight = UDim.new(0, 4), -- match scrollbar thickness
     }, left_col)
+
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         Padding       = UDim.new(0, 6),
@@ -1063,7 +1035,7 @@ function Library._WindowMethods:Tab(name)
         Size = UDim2.new(0.5, -3, 1, 0),
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 3,
+        ScrollBarThickness = 4,
         ScrollBarImageColor3 = Library.Theme.Accent,
         LayoutOrder = 2,
         ZIndex = 3,
@@ -1071,9 +1043,11 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(right_col, "ScrollBarImageColor3", "Accent")
+    -- Same padding on the right column
     new_instance("UIPadding", {
         PaddingRight = UDim.new(0, 4),
     }, right_col)
+
     new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
         Padding       = UDim.new(0, 6),
@@ -1086,6 +1060,7 @@ function Library._WindowMethods:Tab(name)
         Outer    = t_outer,
         Inner    = t_inner,
         Fill     = t_fill,
+        Grad     = grad,
         Label    = label,
         Page     = page,
         LeftCol  = left_col,
@@ -1099,16 +1074,18 @@ function Library._WindowMethods:Tab(name)
         for _, t in ipairs(win.Tabs) do
             local active = (t == tab)
             t.Page.Visible = active
+            tween(t.Label, 0.12, { TextColor3 = active and Library.Theme.Accent or Library.Theme.TabInactive }):Play()
 
-            -- Tab background: accent when active, dark otherwise
-            local bg_color = active and Library.Theme.Accent or Library.Theme.TabTop
-            tween(t.Fill, 0.1, { BackgroundColor3 = bg_color }):Play()
-            -- Text color: white when active, otherwise inactive color
-            local text_color = active and Library.Theme.TextActive or Library.Theme.TabInactive
-            tween(t.Label, 0.1, { TextColor3 = text_color }):Play()
+            local oh = win._tab_h + (active and 1 or 0)
+            local ih = active and (win._tab_h + 1) or (win._tab_h - 1)
+            local fh = active and win._tab_h or (win._tab_h - 2)
+            t.Outer.Size = UDim2.new(1, 0, 0, oh)
+            t.Inner.Size = UDim2.new(1, -2, 0, ih)
+            t.Fill.Size  = UDim2.new(1, -4, 0, fh)
 
-            -- Slight height adjustment for active? we can add a bottom accent line or just keep same height.
-            -- We'll keep height same, just color change.
+            local z = active and 6 or 4
+            t.Outer.ZIndex, t.Inner.ZIndex, t.Fill.ZIndex = z, z, z
+            t.Button.ZIndex = active and 7 or 4
         end
         win.ActiveTab = tab
         sync_tab_gap(win)
@@ -1117,10 +1094,7 @@ function Library._WindowMethods:Tab(name)
 
     Library:RegisterThemeCallback(function()
         local active = (win.ActiveTab == tab)
-        local bg_color = active and Library.Theme.Accent or Library.Theme.TabTop
-        t_Fill.BackgroundColor3 = bg_color
-        local text_color = active and Library.Theme.TextActive or Library.Theme.TabInactive
-        label.TextColor3 = text_color
+        label.TextColor3 = active and Library.Theme.Accent or Library.Theme.TabInactive
     end)
 
     btn.MouseButton1Click:Connect(function()
@@ -1129,12 +1103,12 @@ function Library._WindowMethods:Tab(name)
     end)
     btn.MouseEnter:Connect(function()
         if win.ActiveTab ~= tab then
-            tween(label, 0.08, { TextColor3 = Library.Theme.TabHover }):Play()
+            tween(label, 0.12, { TextColor3 = Library.Theme.TabHover }):Play()
         end
     end)
     btn.MouseLeave:Connect(function()
         if win.ActiveTab ~= tab then
-            tween(label, 0.08, { TextColor3 = Library.Theme.TabInactive }):Play()
+            tween(label, 0.12, { TextColor3 = Library.Theme.TabInactive }):Play()
         end
     end)
 
@@ -1152,7 +1126,7 @@ function Library._TabMethods:Group(title, side)
     local tab = self
     tab._groups = tab._groups + 1
 
-    local HEADER_H = 16
+    local HEADER_H = 19
     local parent_col
     if side == 1 or side == "left" then
         parent_col = tab.LeftCol
@@ -1166,7 +1140,7 @@ function Library._TabMethods:Group(title, side)
         Name = title,
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, HEADER_H + 12),
+        Size = UDim2.new(1, 0, 0, HEADER_H + 15),
         LayoutOrder = tab._groups,
         ZIndex = 3,
         Active = true,
@@ -1186,15 +1160,14 @@ function Library._TabMethods:Group(title, side)
         Name = "Body",
         BackgroundColor3 = Library.Theme.ChildFill,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),   -- inside inner
-        Size = UDim2.new(1, -2, 1, -2),
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.new(1, -4, 1, -4),
         ZIndex = 3,
         ClipsDescendants = false,
         Active = true,
-    }, col_inner)  -- parent to col_inner to keep borders
+    }, col)
     Library:RegisterTheme(body, "BackgroundColor3", "ChildFill")
 
-    -- Header
     local header = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.HeaderTop,
         BorderSizePixel = 0,
@@ -1206,8 +1179,6 @@ function Library._TabMethods:Group(title, side)
         Position = UDim2.fromOffset(6, 0),
         Size = UDim2.new(1, -6, 1, 0),
         ZIndex = 4,
-        TextSize = 12,
-        Bold = true,
     })
 
     local divider = new_instance("Frame", {
@@ -1228,14 +1199,14 @@ function Library._TabMethods:Group(title, side)
     }, body)
 
     local padding = new_instance("UIPadding", {
-        PaddingLeft   = UDim.new(0, 4),
-        PaddingTop    = UDim.new(0, 4),
-        PaddingRight  = UDim.new(0, 4),
-        PaddingBottom = UDim.new(0, 4),
+        PaddingLeft   = UDim.new(0, 6),
+        PaddingTop    = UDim.new(0, 5),
+        PaddingRight  = UDim.new(0, 6),
+        PaddingBottom = UDim.new(0, 5),
     }, content)
     local content_list = new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
-        Padding       = UDim.new(0, 3),
+        Padding       = UDim.new(0, 4),
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, content)
 
@@ -1247,7 +1218,7 @@ function Library._TabMethods:Group(title, side)
         local total = HEADER_H + 1 + top_pad + bot_pad + content_h
 
         content.Size = UDim2.new(1, 0, 0, total - (HEADER_H + 1))
-        col.Size = UDim2.new(1, 0, 0, math.max(HEADER_H + 12, total))
+        col.Size = UDim2.new(1, 0, 0, math.max(HEADER_H + 15, total))
     end
 
     content_list:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update_size)
@@ -1265,7 +1236,7 @@ function Library._TabMethods:Group(title, side)
 end
 
 -- -----------------------------------------------------------------
--- Group methods (controls) – redesigned for compactness
+-- Group methods (controls)
 -- -----------------------------------------------------------------
 Library._GroupMethods = {}
 
@@ -1283,7 +1254,6 @@ local function next_row(group, height)
     return row
 end
 
--- Checkbox – redesigned
 function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     extra = extra or {}
     local state = default and true or false
@@ -1293,27 +1263,24 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(10, 10),
-        Position = UDim2.fromOffset(0, 2),  -- center vertically
+        Size = UDim2.fromOffset(12, 12),
+        Position = UDim2.fromOffset(0, 1),
         ZIndex = 3,
     }, row)
     local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 3 })
-    -- accent fill inside
     local accent = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.Accent,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, -2, 1, -2),
-        Position = UDim2.fromOffset(1, 1),
+        Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = state and 0 or 1,
         ZIndex = 3,
     }, fill)
     vertical_gradient(accent, "Accent", "AccentDark")
 
     local label = make_label(row, text, state and "TextActive" or "TextInactive", {
-        Position = UDim2.fromOffset(15, 0),
-        Size = UDim2.new(1, -15, 1, 0),
+        Position = UDim2.fromOffset(19, 0),
+        Size = UDim2.new(1, -19, 1, 0),
         ZIndex = 3,
-        TextSize = 12,
     })
 
     Library:RegisterThemeCallback(function()
@@ -1323,8 +1290,8 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     local function set(value, fire_callback)
         state = value and true or false
         if flag then Library.Flags[flag] = state end
-        tween(accent, 0.08, { BackgroundTransparency = state and 0 or 1 }):Play()
-        tween(label, 0.08, { TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive }):Play()
+        tween(accent, 0.12, { BackgroundTransparency = state and 0 or 1 }):Play()
+        tween(label, 0.12, { TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive }):Play()
         if fire_callback ~= false and callback then
             task.spawn(callback, state)
         end
@@ -1335,12 +1302,12 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     end)
     btn.MouseEnter:Connect(function()
         if not state then
-            tween(fill, 0.08, { BackgroundColor3 = Color3.fromRGB(40, 40, 40) }):Play()
+            tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(39, 40, 57) }):Play()
         end
     end)
     btn.MouseLeave:Connect(function()
         if not state then
-            tween(fill, 0.08, { BackgroundColor3 = Library.Theme.ChildFill }):Play()
+            tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ChildFill }):Play()
         end
     end)
 
@@ -1373,7 +1340,7 @@ function Library._GroupMethods:_swatch(row, cfg, position, flag)
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(10, 10),
+        Size = UDim2.fromOffset(12, 12),
         Position = position,
         ZIndex = 4,
     }, row)
@@ -1408,23 +1375,21 @@ function Library._GroupMethods:_swatch(row, cfg, position, flag)
     return btn
 end
 
--- ColorPicker – redesigned (same API, just compact)
 function Library._GroupMethods:ColorPicker(text, default, callback, flag)
     local color = default or Library.Theme.Accent
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, -14, 1, 0),
+        Size = UDim2.new(1, -20, 1, 0),
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local btn = new_instance("TextButton", {
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(10, 10),
-        Position = UDim2.new(1, -10, 0, 2),  -- center vertically
+        Size = UDim2.fromOffset(12, 12),
+        Position = UDim2.new(1, -12, 0, 1),
         ZIndex = 4,
     }, row)
     local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", color, { ZIndex = 4 })
@@ -1458,7 +1423,6 @@ function Library._GroupMethods:ColorPicker(text, default, callback, flag)
     return ctrl
 end
 
--- Slider – redesigned compact
 function Library._GroupMethods:Slider(text, options, callback, flag)
     options = options or {}
     local minv = options.min or 0
@@ -1468,14 +1432,12 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
     local suffix = options.suffix or ""
     local value = options.default or minv
 
-    local row = next_row(self, 22)
-
+    local row = next_row(self, 28)
     local label = make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(1, 0),
         Size = UDim2.fromOffset(120, 13),
         TextYAlignment = Enum.TextYAlignment.Top,
         ZIndex = 3,
-        TextSize = 12,
     })
     local val_label = make_label(row, "", "TextInactive", {
         Position = UDim2.new(1, -120, 0, 0),
@@ -1483,15 +1445,14 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
         TextXAlignment = Enum.TextXAlignment.Right,
         TextYAlignment = Enum.TextYAlignment.Top,
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local track = new_instance("TextButton", {
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 15),
-        Size = UDim2.new(1, 0, 0, 6),   -- thin track
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 0, 12),
         ZIndex = 3,
     }, row)
     local _, t_fill = framed_box(track, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 3 })
@@ -1547,13 +1508,13 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
         if is_click(input) then dragging = false end
     end)
     track.MouseEnter:Connect(function()
-        tween(label, 0.08, { TextColor3 = Library.Theme.TextActive }):Play()
-        tween(val_label, 0.08, { TextColor3 = Library.Theme.TextActive }):Play()
+        tween(label, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
+        tween(val_label, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
     end)
     track.MouseLeave:Connect(function()
         if not dragging then
-            tween(label, 0.08, { TextColor3 = Library.Theme.TextInactive }):Play()
-            tween(val_label, 0.08, { TextColor3 = Library.Theme.TextInactive }):Play()
+            tween(label, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
+            tween(val_label, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
         end
     end)
 
@@ -1573,14 +1534,12 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
     return ctrl
 end
 
--- Keybind – redesigned compact
 function Library._GroupMethods:Keybind(text, default, callback, flag)
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.new(1, -38, 1, 0),
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local box = new_instance("TextButton", {
@@ -1653,7 +1612,6 @@ function Library._GroupMethods:Keybind(text, default, callback, flag)
     return ctrl
 end
 
--- Helper for plus icon
 local function plus_icon(parent, color_key)
     local host = new_instance("Frame", {
         Name = "Icon",
@@ -1688,7 +1646,6 @@ local function plus_icon(parent, color_key)
     }
 end
 
--- Dropdown popup builder – redesigned for dark compact style
 local function build_combo_popup(box, items, multi, get_state, on_pick)
     close_all_popups()
     local ITEM_H = 16
@@ -1710,7 +1667,7 @@ local function build_combo_popup(box, items, multi, get_state, on_pick)
     local pop = new_instance("Frame", {
         Name = "DropdownPopup",
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 2),
+        Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 4),
         Size = UDim2.fromOffset(box_sz.X, target_h),
         ClipsDescendants = true,
         ZIndex = 502,
@@ -1748,16 +1705,15 @@ local function build_combo_popup(box, items, multi, get_state, on_pick)
             Position = UDim2.fromOffset(5, 0),
             Size = UDim2.new(1, -7, 1, 0),
             ZIndex = 505,
-            TextSize = 12,
         })
         ib.MouseEnter:Connect(function()
             if not get_state(i) then
-                tween(il, 0.08, { TextColor3 = Library.Theme.TextActive }):Play()
+                tween(il, 0.1, { TextColor3 = Library.Theme.TextActive }):Play()
             end
         end)
         ib.MouseLeave:Connect(function()
             if not get_state(i) then
-                tween(il, 0.08, { TextColor3 = Library.Theme.TextInactive }):Play()
+                tween(il, 0.1, { TextColor3 = Library.Theme.TextInactive }):Play()
             end
         end)
         ib.MouseButton1Click:Connect(function()
@@ -1772,7 +1728,7 @@ local function build_combo_popup(box, items, multi, get_state, on_pick)
         end)
     end
 
-    tween(container, 0.12, { Position = UDim2.fromOffset(0, 0) }):Play()
+    tween(container, 0.15, { Position = UDim2.fromOffset(0, 0) }):Play()
 
     open_popups[#open_popups + 1] = function()
         blocker:Destroy()
@@ -1781,32 +1737,29 @@ local function build_combo_popup(box, items, multi, get_state, on_pick)
     return pop
 end
 
--- Combo – redesigned
 function Library._GroupMethods:Combo(text, items, default, callback, flag)
     local index = default or 1
-    local row = next_row(self, 30)
-
+    local row = next_row(self, 34)
     make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(1, 0),
         Size = UDim2.fromOffset(120, 13),
         TextYAlignment = Enum.TextYAlignment.Top,
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local box = new_instance("TextButton", {
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 15),
-        Size = UDim2.new(1, 0, 0, 15),
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 0, 18),
         ClipsDescendants = true,
         ZIndex = 3,
     }, row)
     local _, b_fill = framed_box(box, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
     local preview = make_label(box, items[index] or "", "TextInactive", {
-        Position = UDim2.fromOffset(5, 0),
-        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.fromOffset(5, 1),
+        Size = UDim2.new(1, -20, 1, -2),
         TextSize = 12,
         ZIndex = 4,
     })
@@ -1822,10 +1775,10 @@ function Library._GroupMethods:Combo(text, items, default, callback, flag)
     end
 
     box.MouseEnter:Connect(function()
-        tween(preview, 0.08, { TextColor3 = Library.Theme.TextActive }):Play()
+        tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
     end)
     box.MouseLeave:Connect(function()
-        tween(preview, 0.08, { TextColor3 = Library.Theme.TextInactive }):Play()
+        tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
     end)
     box.MouseButton1Click:Connect(function()
         if icon.IsOpen() then
@@ -1863,33 +1816,30 @@ function Library._GroupMethods:Combo(text, items, default, callback, flag)
     return ctrl
 end
 
--- MultiCombo – redesigned (same popup)
 function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
     local state = {}
     for i = 1, #items do state[i] = defaults and defaults[i] or false end
-    local row = next_row(self, 30)
-
+    local row = next_row(self, 34)
     make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(1, 0),
         Size = UDim2.fromOffset(120, 13),
         TextYAlignment = Enum.TextYAlignment.Top,
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local box = new_instance("TextButton", {
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 15),
-        Size = UDim2.new(1, 0, 0, 15),
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 0, 18),
         ClipsDescendants = true,
         ZIndex = 3,
     }, row)
     local _, b_fill = framed_box(box, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
     local preview = make_label(box, "", "TextInactive", {
-        Position = UDim2.fromOffset(5, 0),
-        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.fromOffset(5, 1),
+        Size = UDim2.new(1, -20, 1, -2),
         TextSize = 12,
         ZIndex = 4,
     })
@@ -1914,10 +1864,10 @@ function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
     end
 
     box.MouseEnter:Connect(function()
-        tween(preview, 0.08, { TextColor3 = Library.Theme.TextActive }):Play()
+        tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
     end)
     box.MouseLeave:Connect(function()
-        tween(preview, 0.08, { TextColor3 = Library.Theme.TextInactive }):Play()
+        tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
     end)
     box.MouseButton1Click:Connect(function()
         if icon.IsOpen() then
@@ -1949,21 +1899,19 @@ function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
     return ctrl
 end
 
--- TextBox – redesigned
 function Library._GroupMethods:TextBox(text, default, callback, flag)
-    local row = next_row(self, 30)
+    local row = next_row(self, 34)
     make_label(row, text, "TextInactive", {
         Position = UDim2.fromOffset(1, 0),
         Size = UDim2.fromOffset(120, 13),
         TextYAlignment = Enum.TextYAlignment.Top,
         ZIndex = 3,
-        TextSize = 12,
     })
 
     local box_frame = new_instance("Frame", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 15),
-        Size = UDim2.new(1, 0, 0, 15),
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 0, 18),
         ZIndex = 3,
     }, row)
     local _, b_fill = framed_box(box_frame, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
@@ -2005,9 +1953,8 @@ function Library._GroupMethods:TextBox(text, default, callback, flag)
     return ctrl
 end
 
--- Button – redesigned compact
 function Library._GroupMethods:Button(text, callback)
-    local row = next_row(self, 18)
+    local row = next_row(self, 20)
     local btn = new_instance("TextButton", {
         Text = "",
         AutoButtonColor = false,
@@ -2020,39 +1967,36 @@ function Library._GroupMethods:Button(text, callback)
         Size = UDim2.fromScale(1, 1),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 4,
-        TextSize = 12,
     })
     btn.MouseButton1Click:Connect(function()
         if callback then task.spawn(callback) end
     end)
     btn.MouseEnter:Connect(function()
-        tween(fill, 0.08, { BackgroundColor3 = Color3.fromRGB(35, 35, 35) }):Play()
+        tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(35, 36, 45) }):Play()
     end)
     btn.MouseLeave:Connect(function()
-        tween(fill, 0.08, { BackgroundColor3 = Library.Theme.ComboFill }):Play()
+        tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ComboFill }):Play()
     end)
 end
 
--- Label – compact
 function Library._GroupMethods:Label(text)
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
         Size = UDim2.fromScale(1, 1),
         ZIndex = 3,
-        TextSize = 12,
     })
 end
 
 -- -----------------------------------------------------------------
--- Color picker – redesigned slightly more compact
+-- Color picker
 -- -----------------------------------------------------------------
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
-    local W = 140
+    local W = 150
     local pop = new_instance("Frame", {
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(pos.X - W + 12, pos.Y),
-        Size = UDim2.fromOffset(W, 110),
+        Size = UDim2.fromOffset(W, 120),
         ZIndex = 510,
     }, parent)
     local _, pf = framed_box(pop, "OuterBorder", "InnerBorder", "PanelFill", { ZIndex = 510 })
@@ -2061,7 +2005,7 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
         BackgroundColor3 = Color3.fromHSV(h, 1, 1),
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(6, 6),
-        Size = UDim2.fromOffset(W - 30, 90),
+        Size = UDim2.fromOffset(W - 30, 100),
         ZIndex = 511,
         AutoButtonColor = false,
     }, pf)
@@ -2106,8 +2050,8 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     local hue = new_instance("ImageButton", {
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -14, 0, 6),
-        Size = UDim2.fromOffset(10, 90),
+        Position = UDim2.new(1, -16, 0, 6),
+        Size = UDim2.fromOffset(12, 100),
         ZIndex = 511,
         AutoButtonColor = false,
     }, pf)
@@ -2194,7 +2138,7 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
 end
 
 -- -----------------------------------------------------------------
--- Built‑in Config Manager – unchanged
+-- Built‑in Config Manager (scans folder live)
 -- -----------------------------------------------------------------
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
@@ -2258,7 +2202,7 @@ function Library:CreateConfigManager(tab, side)
 end
 
 -- -----------------------------------------------------------------
--- Built‑in Theme Manager – unchanged
+-- Built‑in Theme Manager (scans folder live)
 -- -----------------------------------------------------------------
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
@@ -2327,7 +2271,7 @@ function Library:CreateThemeManager(tab, side)
 end
 
 -- -----------------------------------------------------------------
--- Built‑in UI Customisation – unchanged (but uses new theme colors)
+-- Built‑in UI Customisation
 -- -----------------------------------------------------------------
 function Library:CreateUICustomization(tab, side)
     local group = tab:Group("UI Customization", side or "left")
@@ -2436,7 +2380,7 @@ function Library:CreateUICustomization(tab, side)
 end
 
 -- -----------------------------------------------------------------
--- Watermark – redesigned compact
+-- Watermark
 -- -----------------------------------------------------------------
 Library.WatermarkVisible = false
 Library.WatermarkOptions = {}
@@ -2457,7 +2401,7 @@ function Library:_UpdateWatermark()
 
     if not Library.WatermarkVisible then return end
 
-    local PAD, GAP, H = 6, 4, 18
+    local PAD, GAP, H = 8, 4, 21
     local parts = {
         {t = leftText,  color = leftColor},
         {t = rightText, color = rightColor},
@@ -2491,16 +2435,17 @@ function Library:_UpdateWatermark()
     local fill = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.PanelFill,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.new(1, -4, 1, -4),
         ZIndex = 400,
-    }, f_inner)
+    }, host)
     Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
+    vertical_gradient(fill, "HeaderTop", "HeaderBottom")
 
     local strip = new_instance("Frame", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(PAD, 0),
-        Size = UDim2.new(1, -(PAD), 1, 0),
+        Position = UDim2.fromOffset(PAD - 2, 0),
+        Size = UDim2.new(1, -(PAD - 2), 1, 0),
         ZIndex = 401,
     }, fill)
     new_instance("UIListLayout", {
@@ -2522,7 +2467,7 @@ function Library:_UpdateWatermark()
             TextStrokeTransparency = STROKE_T,
             TextTruncate = Enum.TextTruncate.None,
             AutomaticSize = Enum.AutomaticSize.X,
-            Size = UDim2.fromOffset(0, H - 2),
+            Size = UDim2.fromOffset(0, H - 4),
             LayoutOrder = i,
             ZIndex = 401,
         }, strip)
@@ -2566,7 +2511,7 @@ function Library:_UpdateWatermark()
 end
 
 -- -----------------------------------------------------------------
--- Mobile toggle – unchanged
+-- Mobile toggle
 -- -----------------------------------------------------------------
 function Library:CreateMobileToggle(on_toggle)
     local host = new_instance("Frame", {
@@ -2574,7 +2519,7 @@ function Library:CreateMobileToggle(on_toggle)
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(36, 36),
+        Size = UDim2.fromOffset(42, 42),
         ZIndex = 600,
     }, screen_gui)
     Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
@@ -2591,10 +2536,10 @@ function Library:CreateMobileToggle(on_toggle)
     local fill = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.PanelFill,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.new(1, -4, 1, -4),
         ZIndex = 600,
-    }, f_inner)
+    }, host)
     Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
 
     local btn = new_instance("TextButton", {
@@ -2643,7 +2588,7 @@ function Library:CreateMobileToggle(on_toggle)
 end
 
 -- -----------------------------------------------------------------
--- Custom cursor – unchanged
+-- Custom cursor
 -- -----------------------------------------------------------------
 local function make_cursor()
     local S = 11
@@ -2724,7 +2669,7 @@ local function set_cursor_enabled(on)
 end
 
 -- -----------------------------------------------------------------
--- Toggle binding – unchanged
+-- Toggle binding
 -- -----------------------------------------------------------------
 function Library:BindToggle(window)
     local visible = true
