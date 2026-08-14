@@ -145,24 +145,56 @@ local PRESET_THEMES = {
 }
 
 -- ============================================================
--- FONT CHANGED TO PIXEL ARCADE STYLE (Press Start 2P)
+-- CUSTOM FONT LOADING (Tahoma 8px pixel font)
 -- ============================================================
-local FONT_FACE = pcall(function()
-    return FontFace.new("Press Start 2P", {
-        Source = "https://fonts.gstatic.com/s/pressstart2p/v15/e3t4uOIUlnEAx3h7eKbF-0j1bA.woff2"
-    })
-end) and FONT_FACE or nil
-
-local FONT      = nil  -- not used when FONT_FACE is set
-local FONT_BOLD = nil
-local FONT_SIZE = 12    -- pixel fonts need slightly smaller size
+local FONT      = Enum.Font.SourceSans
+local FONT_BOLD = Enum.Font.SourceSansBold
+local FONT_FACE = nil
+local FONT_SIZE = 13
 local STROKE_T  = 0.55
 
--- Fallback if font fails to load: use a built‑in font with a pixel‑like appearance (small size)
-if not FONT_FACE then
-    FONT = Enum.Font.SourceSans
-    FONT_BOLD = Enum.Font.SourceSansBold
-    FONT_SIZE = 13
+-- Attempt to download and register custom font
+if writefile and makefolder and isfolder and isfile and getcustomasset then
+    local fontFolder = CONFIG_FOLDER .. "/Fonts"
+    local fontPath = fontFolder .. "/main.ttf"
+    local fontUrl = "https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"
+
+    -- Ensure font folder exists
+    if not isfolder(fontFolder) then
+        pcall(makefolder, fontFolder)
+    end
+
+    -- Download font if missing
+    if not isfile(fontPath) then
+        local ok, content = pcall(game.HttpGet, game, fontUrl)
+        if ok and content then
+            pcall(writefile, fontPath, content)
+        end
+    end
+
+    -- Load font if present
+    if isfile(fontPath) then
+        local success, assetId = pcall(getcustomasset, fontPath)
+        if success and assetId then
+            local ok, fontFace = pcall(FontFace.new, "SmallestPixel7", {
+                faces = {
+                    {
+                        name = "Regular",
+                        weight = 400,
+                        style = "normal",
+                        assetId = "rbxassetid://" .. tostring(assetId),
+                    }
+                }
+            })
+            if ok and fontFace then
+                FONT_FACE = fontFace
+                FONT = nil
+                FONT_BOLD = nil
+                -- pixel fonts often need slightly smaller size
+                FONT_SIZE = 12
+            end
+        end
+    end
 end
 
 -- -----------------------------------------------------------------
@@ -2422,9 +2454,11 @@ function Library:_UpdateWatermark()
         {t = rightText, color = rightColor},
         {t = buildText, color = Color3.fromRGB(100, 100, 100)},
     }
+    -- Use correct font for measurement
+    local measureFont = FONT_FACE or FONT
     local total = PAD * 2
     for i, p in ipairs(parts) do
-        total = total + TextService:GetTextSize(p.t, FONT_SIZE, FONT or Enum.Font.SourceSans, Vector2.new(10000, 100)).X
+        total = total + TextService:GetTextSize(p.t, FONT_SIZE, measureFont, Vector2.new(10000, 100)).X
         if i < #parts then total = total + GAP end
     end
 
