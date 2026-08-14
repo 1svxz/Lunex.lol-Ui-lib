@@ -144,8 +144,11 @@ local PRESET_THEMES = {
     }
 }
 
-local FONT      = Enum.Font.SourceSans
-local FONT_BOLD = Enum.Font.SourceSansBold
+-- ============================================================
+-- FONT CHANGED TO ARIAL
+-- ============================================================
+local FONT      = Enum.Font.Arial
+local FONT_BOLD = Enum.Font.ArialBold
 local FONT_FACE = nil
 local FONT_SIZE = 13
 local STROKE_T  = 0.55
