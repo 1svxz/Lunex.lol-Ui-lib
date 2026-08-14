@@ -144,58 +144,11 @@ local PRESET_THEMES = {
     }
 }
 
--- ============================================================
--- CUSTOM FONT LOADING (Tahoma 8px pixel font)
--- ============================================================
 local FONT      = Enum.Font.SourceSans
 local FONT_BOLD = Enum.Font.SourceSansBold
 local FONT_FACE = nil
 local FONT_SIZE = 13
 local STROKE_T  = 0.55
-
--- Attempt to download and register custom font
-if writefile and makefolder and isfolder and isfile and getcustomasset then
-    local fontFolder = CONFIG_FOLDER .. "/Fonts"
-    local fontPath = fontFolder .. "/main.ttf"
-    local fontUrl = "https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"
-
-    -- Ensure font folder exists
-    if not isfolder(fontFolder) then
-        pcall(makefolder, fontFolder)
-    end
-
-    -- Download font if missing
-    if not isfile(fontPath) then
-        local ok, content = pcall(game.HttpGet, game, fontUrl)
-        if ok and content then
-            pcall(writefile, fontPath, content)
-        end
-    end
-
-    -- Load font if present
-    if isfile(fontPath) then
-        local success, assetId = pcall(getcustomasset, fontPath)
-        if success and assetId then
-            local ok, fontFace = pcall(FontFace.new, "SmallestPixel7", {
-                faces = {
-                    {
-                        name = "Regular",
-                        weight = 400,
-                        style = "normal",
-                        assetId = "rbxassetid://" .. tostring(assetId),
-                    }
-                }
-            })
-            if ok and fontFace then
-                FONT_FACE = fontFace
-                FONT = nil
-                FONT_BOLD = nil
-                -- pixel fonts often need slightly smaller size
-                FONT_SIZE = 12
-            end
-        end
-    end
-end
 
 -- -----------------------------------------------------------------
 -- Library main table
@@ -2026,156 +1979,6 @@ function Library._GroupMethods:Button(text, callback)
     end)
 end
 
--- ============================================================
--- NEW: Console control (searchable log viewer)
--- ============================================================
-function Library._GroupMethods:Console(options)
-    options = options or {}
-    local title = options.title or "Console"
-    local initialLines = options.lines or {}   -- table of strings
-
-    local row = next_row(self, 24)  -- height includes search bar + list
-    local parent = row
-
-    -- Search bar
-    local searchBox = new_instance("TextBox", {
-        BackgroundTransparency = 1,
-        Text = "",
-        TextColor3 = Library.Theme.TextInactive,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        PlaceholderText = "Search...",
-        ClearTextOnFocus = false,
-        Size = UDim2.new(1, -32, 0, 16),
-        Position = UDim2.fromOffset(0, 0),
-        ZIndex = 4,
-    }, parent)
-    apply_font(searchBox, false)
-    Library:RegisterTheme(searchBox, "TextColor3", "TextInactive")
-    local _, fill = framed_box(parent, "OuterBorder", "InnerBorder", "ComboFill", { ZIndex = 3 })
-    searchBox.Parent = fill
-    searchBox.Size = UDim2.new(1, -10, 1, -2)
-    searchBox.Position = UDim2.fromOffset(5, 1)
-
-    local clearBtn = new_instance("TextButton", {
-        Text = "Clear",
-        BackgroundTransparency = 1,
-        TextColor3 = Library.Theme.TextInactive,
-        TextSize = 11,
-        Size = UDim2.fromOffset(24, 14),
-        Position = UDim2.new(1, -28, 0, 1),
-        ZIndex = 5,
-        AutoButtonColor = false,
-    }, parent)
-    apply_font(clearBtn, false)
-    Library:RegisterTheme(clearBtn, "TextColor3", "TextInactive")
-
-    -- Log list (ScrollingFrame)
-    local logFrame = new_instance("ScrollingFrame", {
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 20),
-        Size = UDim2.new(1, 0, 1, -22),
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = Library.Theme.Accent,
-        ZIndex = 3,
-        BorderSizePixel = 0,
-        ClipsDescendants = true,
-    }, parent)
-    Library:RegisterTheme(logFrame, "ScrollBarImageColor3", "Accent")
-    new_instance("UIListLayout", {
-        FillDirection = Enum.FillDirection.Vertical,
-        Padding = UDim.new(0, 1),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, logFrame)
-
-    -- Internal data
-    local allLines = {}
-    local filteredLines = {}
-    local searchTerm = ""
-
-    local function refreshDisplay()
-        -- Clear children
-        for _, child in ipairs(logFrame:GetChildren()) do
-            if child:IsA("TextLabel") then child:Destroy() end
-        end
-        local toShow = (searchTerm == "") and allLines or filteredLines
-        for _, text in ipairs(toShow) do
-            local lbl = new_instance("TextLabel", {
-                BackgroundTransparency = 1,
-                Text = text,
-                TextColor3 = Library.Theme.TextInactive,
-                TextSize = 11,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextYAlignment = Enum.TextYAlignment.Top,
-                TextWrapped = true,
-                Size = UDim2.new(1, -4, 0, 14),
-                ZIndex = 3,
-            }, logFrame)
-            apply_font(lbl, false)
-            Library:RegisterTheme(lbl, "TextColor3", "TextInactive")
-        end
-        logFrame.CanvasSize = UDim2.new(0, 0, 0, #toShow * 14)
-    end
-
-    -- Add a line (public)
-    local function addLine(text)
-        table.insert(allLines, text)
-        if searchTerm == "" or string.find(text:lower(), searchTerm:lower()) then
-            table.insert(filteredLines, text)
-        end
-        refreshDisplay()
-    end
-
-    -- Clear
-    local function clear()
-        allLines = {}
-        filteredLines = {}
-        refreshDisplay()
-    end
-
-    -- Initial lines
-    for _, line in ipairs(initialLines) do
-        addLine(line)
-    end
-
-    -- Search event
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        searchTerm = searchBox.Text
-        filteredLines = {}
-        if searchTerm == "" then
-            filteredLines = allLines
-        else
-            for _, line in ipairs(allLines) do
-                if string.find(line:lower(), searchTerm:lower()) then
-                    table.insert(filteredLines, line)
-                end
-            end
-        end
-        refreshDisplay()
-    end)
-
-    clearBtn.MouseButton1Click:Connect(clear)
-
-    -- Return API
-    return {
-        AddLine = addLine,
-        Clear = clear,
-        GetLines = function() return allLines end,
-        SetLines = function(newLines)
-            allLines = newLines or {}
-            filteredLines = (searchTerm == "") and allLines or {}
-            for _, line in ipairs(allLines) do
-                if searchTerm ~= "" and string.find(line:lower(), searchTerm:lower()) then
-                    table.insert(filteredLines, line)
-                end
-            end
-            refreshDisplay()
-        end,
-    }
-end
-
 function Library._GroupMethods:Label(text)
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
@@ -2604,11 +2407,9 @@ function Library:_UpdateWatermark()
         {t = rightText, color = rightColor},
         {t = buildText, color = Color3.fromRGB(100, 100, 100)},
     }
-    -- Use correct font for measurement
-    local measureFont = FONT_FACE or FONT
     local total = PAD * 2
     for i, p in ipairs(parts) do
-        total = total + TextService:GetTextSize(p.t, FONT_SIZE, measureFont, Vector2.new(10000, 100)).X
+        total = total + TextService:GetTextSize(p.t, FONT_SIZE, FONT, Vector2.new(10000, 100)).X
         if i < #parts then total = total + GAP end
     end
 
