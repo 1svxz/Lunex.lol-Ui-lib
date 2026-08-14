@@ -2026,6 +2026,156 @@ function Library._GroupMethods:Button(text, callback)
     end)
 end
 
+-- ============================================================
+-- NEW: Console control (searchable log viewer)
+-- ============================================================
+function Library._GroupMethods:Console(options)
+    options = options or {}
+    local title = options.title or "Console"
+    local initialLines = options.lines or {}   -- table of strings
+
+    local row = next_row(self, 24)  -- height includes search bar + list
+    local parent = row
+
+    -- Search bar
+    local searchBox = new_instance("TextBox", {
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Library.Theme.TextInactive,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        PlaceholderText = "Search...",
+        ClearTextOnFocus = false,
+        Size = UDim2.new(1, -32, 0, 16),
+        Position = UDim2.fromOffset(0, 0),
+        ZIndex = 4,
+    }, parent)
+    apply_font(searchBox, false)
+    Library:RegisterTheme(searchBox, "TextColor3", "TextInactive")
+    local _, fill = framed_box(parent, "OuterBorder", "InnerBorder", "ComboFill", { ZIndex = 3 })
+    searchBox.Parent = fill
+    searchBox.Size = UDim2.new(1, -10, 1, -2)
+    searchBox.Position = UDim2.fromOffset(5, 1)
+
+    local clearBtn = new_instance("TextButton", {
+        Text = "Clear",
+        BackgroundTransparency = 1,
+        TextColor3 = Library.Theme.TextInactive,
+        TextSize = 11,
+        Size = UDim2.fromOffset(24, 14),
+        Position = UDim2.new(1, -28, 0, 1),
+        ZIndex = 5,
+        AutoButtonColor = false,
+    }, parent)
+    apply_font(clearBtn, false)
+    Library:RegisterTheme(clearBtn, "TextColor3", "TextInactive")
+
+    -- Log list (ScrollingFrame)
+    local logFrame = new_instance("ScrollingFrame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 20),
+        Size = UDim2.new(1, 0, 1, -22),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Library.Theme.Accent,
+        ZIndex = 3,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, parent)
+    Library:RegisterTheme(logFrame, "ScrollBarImageColor3", "Accent")
+    new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 1),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, logFrame)
+
+    -- Internal data
+    local allLines = {}
+    local filteredLines = {}
+    local searchTerm = ""
+
+    local function refreshDisplay()
+        -- Clear children
+        for _, child in ipairs(logFrame:GetChildren()) do
+            if child:IsA("TextLabel") then child:Destroy() end
+        end
+        local toShow = (searchTerm == "") and allLines or filteredLines
+        for _, text in ipairs(toShow) do
+            local lbl = new_instance("TextLabel", {
+                BackgroundTransparency = 1,
+                Text = text,
+                TextColor3 = Library.Theme.TextInactive,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Top,
+                TextWrapped = true,
+                Size = UDim2.new(1, -4, 0, 14),
+                ZIndex = 3,
+            }, logFrame)
+            apply_font(lbl, false)
+            Library:RegisterTheme(lbl, "TextColor3", "TextInactive")
+        end
+        logFrame.CanvasSize = UDim2.new(0, 0, 0, #toShow * 14)
+    end
+
+    -- Add a line (public)
+    local function addLine(text)
+        table.insert(allLines, text)
+        if searchTerm == "" or string.find(text:lower(), searchTerm:lower()) then
+            table.insert(filteredLines, text)
+        end
+        refreshDisplay()
+    end
+
+    -- Clear
+    local function clear()
+        allLines = {}
+        filteredLines = {}
+        refreshDisplay()
+    end
+
+    -- Initial lines
+    for _, line in ipairs(initialLines) do
+        addLine(line)
+    end
+
+    -- Search event
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        searchTerm = searchBox.Text
+        filteredLines = {}
+        if searchTerm == "" then
+            filteredLines = allLines
+        else
+            for _, line in ipairs(allLines) do
+                if string.find(line:lower(), searchTerm:lower()) then
+                    table.insert(filteredLines, line)
+                end
+            end
+        end
+        refreshDisplay()
+    end)
+
+    clearBtn.MouseButton1Click:Connect(clear)
+
+    -- Return API
+    return {
+        AddLine = addLine,
+        Clear = clear,
+        GetLines = function() return allLines end,
+        SetLines = function(newLines)
+            allLines = newLines or {}
+            filteredLines = (searchTerm == "") and allLines or {}
+            for _, line in ipairs(allLines) do
+                if searchTerm ~= "" and string.find(line:lower(), searchTerm:lower()) then
+                    table.insert(filteredLines, line)
+                end
+            end
+            refreshDisplay()
+        end,
+    }
+end
+
 function Library._GroupMethods:Label(text)
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
