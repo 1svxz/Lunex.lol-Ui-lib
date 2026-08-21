@@ -1,6 +1,6 @@
 -- ============================================================
 -- LUNEX UI LIBRARY V2 – Full version with SubSection, Dock,
--- Watermark, KeybindList, and mobile support.
+-- Watermark, KeybindList, and mobile support. (Fixed)
 -- ============================================================
 
 local UserInputService = game:GetService("UserInputService")
@@ -369,6 +369,124 @@ local function key_text(key)
     return "?"
 end
 
+-- Helper functions for dropdowns (must be accessible to both Dropdown and MultiDropdown)
+local function plus_icon(parent, color_key)
+    local host = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -5, 0.5, 0),
+        Size = UDim2.fromOffset(7, 7),
+        ZIndex = 4,
+    }, parent)
+    local color = type(color_key) == "string" and Library.Theme[color_key] or color_key
+    local hbar = new_instance("Frame", {
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 3),
+        Size = UDim2.fromOffset(7, 1),
+        ZIndex = 4,
+    }, host)
+    local vbar = new_instance("Frame", {
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(3, 0),
+        Size = UDim2.fromOffset(1, 7),
+        ZIndex = 4,
+    }, host)
+    if type(color_key) == "string" then
+        Library:RegisterTheme(hbar, "BackgroundColor3", color_key)
+        Library:RegisterTheme(vbar, "BackgroundColor3", color_key)
+    end
+    return {
+        SetOpen = function(open) vbar.Visible = not open end,
+        IsOpen = function() return not vbar.Visible end,
+    }
+end
+
+local function build_combo_popup(box, items, multi, get_state, on_pick)
+    close_all_popups()
+    local ITEM_H = 16
+    local target_h = #items * ITEM_H + 4
+    local box_abs = box.AbsolutePosition
+    local box_sz = box.AbsoluteSize
+
+    local blocker = new_instance("TextButton", {
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 501,
+    }, screen_gui)
+    blocker.MouseButton1Click:Connect(close_all_popups)
+
+    local pop = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 4),
+        Size = UDim2.fromOffset(box_sz.X, target_h),
+        ClipsDescendants = true,
+        ZIndex = 502,
+    }, screen_gui)
+    local _, pfill = framed_box(pop, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 502 })
+    pfill.Size = UDim2.new(1, -2, 1, -2)
+    local mask = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        ClipsDescendants = true,
+        ZIndex = 503,
+    }, pfill)
+    local container = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, -target_h),
+        Size = UDim2.new(1, 0, 0, target_h),
+        ZIndex = 503,
+    }, mask)
+
+    for i, it in ipairs(items) do
+        local ib = new_instance("TextButton", {
+            Text = "",
+            AutoButtonColor = false,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(0, (i - 1) * ITEM_H),
+            Size = UDim2.new(1, 0, 0, ITEM_H),
+            ClipsDescendants = true,
+            ZIndex = 504,
+        }, container)
+        local selected = get_state(i)
+        local il = make_label(ib, (selected and "> " or "") .. it, selected and "ComboSelected" or "TextInactive", {
+            Position = UDim2.fromOffset(5, 0),
+            Size = UDim2.new(1, -7, 1, 0),
+            ZIndex = 505,
+        })
+        ib.MouseEnter:Connect(function()
+            if not get_state(i) then
+                tween(il, 0.1, { TextColor3 = Library.Theme.TextActive }):Play()
+            end
+        end)
+        ib.MouseLeave:Connect(function()
+            if not get_state(i) then
+                tween(il, 0.1, { TextColor3 = Library.Theme.TextInactive }):Play()
+            end
+        end)
+        ib.MouseButton1Click:Connect(function()
+            on_pick(i)
+            if multi then
+                local s = get_state(i)
+                il.Text = (s and "> " or "") .. it
+                il.TextColor3 = s and Library.Theme.ComboSelected or Library.Theme.TextInactive
+            else
+                close_all_popups()
+            end
+        end)
+    end
+
+    tween(container, 0.15, { Position = UDim2.fromOffset(0, 0) }):Play()
+    open_popups[#open_popups + 1] = function()
+        blocker:Destroy()
+        pop:Destroy()
+    end
+    return pop
+end
+
 -- -----------------------------------------------------------------
 -- ScreenGui & popup layer
 -- -----------------------------------------------------------------
@@ -682,6 +800,101 @@ local function add_resize_handles(canvas, on_resize, window_ref)
             if is_click(input) then active = false end
         end)
     end
+end
+
+-- -----------------------------------------------------------------
+-- Draggify / Resizify
+-- -----------------------------------------------------------------
+function Library:Draggify(Object, Target)
+    Target = Target or Object
+    local dragging, dragStart, startPos = false, nil, nil
+    Object.Active = true
+
+    Object.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Library.ActiveDrag and Library.ActiveDrag ~= Object then return end
+        if Library.InputFocused then return end
+        if not Library:IsHovering(Object) then return end
+
+        dragging = true
+        Library.ActiveDrag = Object
+        dragStart = UserInputService:GetMouseLocation()
+        startPos = Target.Position
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging or Library.ActiveDrag ~= Object then return end
+        if Library.InputFocused then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        if not dragStart or not startPos then return end
+
+        local delta = UserInputService:GetMouseLocation() - dragStart
+        Target.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Library.ActiveDrag == Object then Library.ActiveDrag = nil end
+        dragging = false
+    end)
+end
+
+function Library:Resizify(Object, Min, Max)
+    local resizing, startMouse, startSize = false, nil, nil
+    local handle = new_instance("TextButton", {
+        Parent = Object,
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.fromOffset(16, 16),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 999999,
+    })
+
+    handle.MouseButton1Down:Connect(function()
+        if Library.ActiveDrag then return end
+        resizing = true
+        Library.ActiveDrag = handle
+        startMouse = UserInputService:GetMouseLocation()
+        startSize = Vector2.new(Object.Size.X.Offset, Object.Size.Y.Offset)
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not resizing or Library.ActiveDrag ~= handle then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+        local delta = UserInputService:GetMouseLocation() - startMouse
+        Object.Size = UDim2.fromOffset(
+            math.clamp(startSize.X + delta.X, Min.X, Max.X),
+            math.clamp(startSize.Y + delta.Y, Min.Y, Max.Y)
+        )
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Library.ActiveDrag == handle then Library.ActiveDrag = nil end
+        resizing = false
+    end)
+end
+
+function Library:IsHovering(Object)
+    local mouse = UserInputService:GetMouseLocation()
+    local pos, size = Object.AbsolutePosition, Object.AbsoluteSize
+    return mouse.X >= pos.X and mouse.X <= pos.X + size.X and
+           mouse.Y >= pos.Y and mouse.Y <= pos.Y + size.Y
+end
+
+function Library:MakeFlag(parent, base)
+    Library.FlagCounter = (Library.FlagCounter or 0) + 1
+    local id = Library.FlagCounter
+    base = base or "flag"
+    if parent and parent.Name then
+        return parent.Name .. '_' .. base .. '_' .. id
+    end
+    return base .. '_' .. id
 end
 
 -- -----------------------------------------------------------------
@@ -1449,10 +1662,59 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
         end
     end
 
+    -- Add Keybind method to checkbox control
     local ctrl = {
         Set = function(_, v, f) set(v, f) end,
         Get = function() return state end,
+        _keybind = nil,  -- will hold keybind object if attached
     }
+
+    -- Method to attach a keybind that toggles this checkbox
+    function ctrl:Keybind(params)
+        local kb = {
+            Name = params.Name or "Keybind",
+            Key = params.Key or Enum.KeyCode.Unknown,
+            Mode = params.Mode or "Toggle",
+            Active = false,
+            _control = self,
+        }
+        -- We'll reuse the Keybind functionality by creating a standalone keybind that calls self:Set()
+        local function toggleCallback(active)
+            if kb.Mode == "Toggle" then
+                if active then
+                    self:Set(not state, true)
+                end
+            elseif kb.Mode == "Hold" then
+                self:Set(active, true)
+            end
+        end
+        -- Simulate a keybind object with callback
+        kb.Callback = toggleCallback
+        -- Store the keybind object in the control
+        self._keybind = kb
+        -- Actually listen for key presses (simplified)
+        local function onKey(input)
+            if input.KeyCode == kb.Key then
+                if kb.Mode == "Hold" then
+                    toggleCallback(true)
+                elseif kb.Mode == "Toggle" then
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        toggleCallback(not kb.Active)
+                        kb.Active = not kb.Active
+                    end
+                end
+            end
+        end
+        local function onKeyUp(input)
+            if input.KeyCode == kb.Key and kb.Mode == "Hold" then
+                toggleCallback(false)
+            end
+        end
+        UserInputService.InputBegan:Connect(onKey)
+        UserInputService.InputEnded:Connect(onKeyUp)
+        return kb
+    end
+
     if flag then
         Library.Flags[flag] = state
         Library.Controls[flag] = ctrl
@@ -1576,7 +1838,7 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
     return ctrl
 end
 
--- Keybind
+-- Keybind (standalone)
 function Library._GroupMethods:Keybind(params)
     local Cfg = {
         Name = params.Name or "keybind",
@@ -1683,11 +1945,8 @@ function Library._GroupMethods:Dropdown(params)
         Options = params.Options or {},
         Default = params.Default,
         Callback = params.Callback or function() end,
-        MultiSelect = false,
         Value = nil,
         Open = false,
-        Items = {},
-        OptionInstances = {},
     }
     local row = next_row(self, 34)
     make_label(row, Cfg.Name, "TextInactive", {
@@ -1713,83 +1972,7 @@ function Library._GroupMethods:Dropdown(params)
         TextSize = 12,
         ZIndex = 4,
     })
-
-    local function plus_icon(parent, color_key)
-        local host = new_instance("Frame", {
-            BackgroundTransparency = 1,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -5, 0.5, 0),
-            Size = UDim2.fromOffset(7, 7),
-            ZIndex = 4,
-        }, parent)
-        local color = type(color_key) == "string" and Library.Theme[color_key] or color_key
-        local hbar = new_instance("Frame", { BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 3), Size = UDim2.fromOffset(7, 1), ZIndex = 4 }, host)
-        local vbar = new_instance("Frame", { BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(3, 0), Size = UDim2.fromOffset(1, 7), ZIndex = 4 }, host)
-        if type(color_key) == "string" then
-            Library:RegisterTheme(hbar, "BackgroundColor3", color_key)
-            Library:RegisterTheme(vbar, "BackgroundColor3", color_key)
-        end
-        return { SetOpen = function(open) vbar.Visible = not open end, IsOpen = function() return not vbar.Visible end }
-    end
     local icon = plus_icon(box, "Accent")
-
-    local function build_combo_popup(box, items, multi, get_state, on_pick)
-        close_all_popups()
-        local ITEM_H = 16
-        local target_h = #items * ITEM_H + 4
-        local box_abs = box.AbsolutePosition
-        local box_sz = box.AbsoluteSize
-
-        local blocker = new_instance("TextButton", {
-            BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
-            Size = UDim2.fromScale(1, 1), ZIndex = 501,
-        }, screen_gui)
-        blocker.MouseButton1Click:Connect(close_all_popups)
-
-        local pop = new_instance("Frame", {
-            BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 4),
-            Size = UDim2.fromOffset(box_sz.X, target_h),
-            ClipsDescendants = true, ZIndex = 502,
-        }, screen_gui)
-        local _, pfill = framed_box(pop, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 502 })
-        pfill.Size = UDim2.new(1, -2, 1, -2)
-        local mask = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ClipsDescendants = true, ZIndex = 503 }, pfill)
-        local container = new_instance("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, -target_h), Size = UDim2.new(1, 0, 0, target_h), ZIndex = 503 }, mask)
-
-        for i, it in ipairs(items) do
-            local ib = new_instance("TextButton", {
-                Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
-                Position = UDim2.fromOffset(0, (i - 1) * ITEM_H),
-                Size = UDim2.new(1, 0, 0, ITEM_H),
-                ClipsDescendants = true, ZIndex = 504,
-            }, container)
-            local selected = get_state(i)
-            local il = make_label(ib, (selected and "> " or "") .. it, selected and "ComboSelected" or "TextInactive", {
-                Position = UDim2.fromOffset(5, 0), Size = UDim2.new(1, -7, 1, 0), ZIndex = 505,
-            })
-            ib.MouseEnter:Connect(function()
-                if not get_state(i) then tween(il, 0.1, { TextColor3 = Library.Theme.TextActive }):Play() end
-            end)
-            ib.MouseLeave:Connect(function()
-                if not get_state(i) then tween(il, 0.1, { TextColor3 = Library.Theme.TextInactive }):Play() end
-            end)
-            ib.MouseButton1Click:Connect(function()
-                on_pick(i)
-                if multi then
-                    local s = get_state(i)
-                    il.Text = (s and "> " or "") .. it
-                    il.TextColor3 = s and Library.Theme.ComboSelected or Library.Theme.TextInactive
-                else
-                    close_all_popups()
-                end
-            end)
-        end
-
-        tween(container, 0.15, { Position = UDim2.fromOffset(0, 0) }):Play()
-        open_popups[#open_popups + 1] = function() blocker:Destroy() pop:Destroy() end
-        return pop
-    end
 
     local function set(i, fire_callback)
         Cfg.Value = i
@@ -2098,7 +2281,7 @@ function Library._GroupMethods:Button(params)
 end
 
 -- Separator
-function Library._GroupMethods:Separator(params)
+function Library._GroupMethods:Separator()
     local row = next_row(self, 2)
     local line = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.InnerBorder,
@@ -2110,7 +2293,7 @@ function Library._GroupMethods:Separator(params)
     Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
 end
 
--- Divider (same as Separator, but with a name)
+-- Divider (with optional name)
 function Library._GroupMethods:Divider(params)
     local row = next_row(self, params and params.Height or 6)
     local line = new_instance("Frame", {
@@ -2645,7 +2828,7 @@ function Library:KeybindList(params)
 end
 
 -- -----------------------------------------------------------------
--- Watermark (live stats)
+-- Watermark (live stats) – duplicate but needed for standalone
 -- -----------------------------------------------------------------
 function Library:Watermark(params)
     local Cfg = { Name = params.Name or "Watermark", Modules = params.Modules or {}, Items = {} }
@@ -2918,3 +3101,309 @@ Library.Extras = new_instance("ScreenGui", { Name = "Extras", IgnoreGuiInset = t
 
 -- Return the library
 return Library
+```
+
+---
+
+🚀 Working Example Script
+
+Place this after the library code (or load via loadstring). It uses all features.
+
+```lua
+-- ============================================================
+-- Lunex UI V2 – Full Feature Example (Working)
+-- ============================================================
+
+-- If you hosted the library as a raw URL, uncomment this line:
+-- local Library = loadstring(game:HttpGet("your_raw_url_here"))()
+
+local win = Library:Window({
+    TitleLeft = "Lunex ",
+    TitleRight = "V2",
+    Size = Vector2.new(550, 550)
+})
+
+local mainTab = win:GetTab("Main")
+local espTab = win:GetTab("ESP Preview")
+local miscTab = win:Tab("Misc")
+local themeTab = win:Tab("Theme")
+
+-- ============================================================
+-- 1. MAIN TAB – Aimbot + Silent Aim
+-- ============================================================
+local aimbotSec = mainTab:Group("Aimbot", "left")
+local silentSec = mainTab:Group("Silent Aim", "right")
+
+-- Aimbot toggle with keybind
+local aimbotToggle = aimbotSec:Checkbox("Aimbot Enabled", false, function(v) print("Aimbot:", v) end, nil, "aim_enabled")
+local aimbotKeybind = aimbotToggle:Keybind({ Name = "Aimbot Key", Key = Enum.KeyCode.E, Mode = "Toggle" })
+
+aimbotSec:Slider("FOV", {min=0, max=180, default=90, suffix="°", int=true}, function(v) print("FOV:", v) end, "aim_fov")
+aimbotSec:Slider("Smoothness", {min=0, max=100, default=50, suffix="%", int=true}, function(v) print("Smooth:", v) end, "aim_smooth")
+aimbotSec:Dropdown({
+    Name = "Target",
+    Options = {"Closest to crosshair", "Closest to player", "Lowest health", "Highest threat"},
+    Default = "Closest to crosshair",
+    Callback = function(_, opt) print("Target:", opt) end,
+    Flag = "aim_target"
+})
+aimbotSec:Colorpicker({ Name = "FOV Color", Default = Color3.fromRGB(255,0,0), Callback = function(c) print("Color:", c) end, Flag = "aim_fov_color" })
+aimbotSec:Textbox({ Name = "Username", Default = "Player123", Placeholder = "Enter name...", Callback = function(str) print("Username:", str) end, Flag = "aim_username" })
+aimbotSec:Keybind({ Name = "Silent Aim Key", Key = Enum.KeyCode.R, Mode = "Hold", Callback = function(a) print("Silent Aim:", a) end })
+aimbotSec:Button({ Name = "Reset Settings", Callback = function() print("Reset") end })
+aimbotSec:Separator()
+aimbotSec:Divider({ Name = "Advanced" })
+
+-- SubSection (Basic / Advanced / Debug)
+local basic, advanced, debug = aimbotSec:SubSection({ Names = {"Basic", "Advanced", "Debug"}, Count = 3 })
+basic:Checkbox("Lock On", false, function(v) print("Lock On:", v) end, nil, "lockon")
+basic:Slider("Sensitivity", {min=0, max=100, default=50, suffix="%", int=true}, function(v) print("Sens:", v) end, "sens")
+basic:Dropdown({ Name = "Bone", Options = {"Head","Chest","Pelvis"}, Default = "Head", Callback = function(_, opt) print("Bone:", opt) end, Flag = "aim_bone" })
+
+advanced:Checkbox("Prediction", false, function(v) print("Pred:", v) end, nil, "prediction")
+advanced:Checkbox("Visibility", false, function(v) print("Vis:", v) end, nil, "vis")
+advanced:Slider("Reaction", {min=0, max=500, default=100, suffix="ms", int=true}, function(v) print("Reaction:", v) end, "reaction")
+
+debug:Checkbox("Debug Mode", false, function(v) print("Debug:", v) end, nil, "debug")
+debug:Slider("Log Level", {min=0, max=5, default=1, int=true}, function(v) print("Log level:", v) end, "loglevel")
+
+-- Silent Aim
+silentSec:Checkbox("Enabled", false, function(v) print("Silent:", v) end, nil, "silent_enabled")
+silentSec:Checkbox("Wall Check", false, function(v) print("Wall:", v) end, nil, "silent_wall")
+silentSec:Checkbox("Team Check", false, function(v) print("Team:", v) end, nil, "silent_team")
+silentSec:Slider("Distance", {min=0, max=500, default=100, suffix="m", int=true}, function(v) print("Dist:", v) end, "silent_dist")
+silentSec:Slider("Hit Chance", {min=0, max=100, default=75, suffix="%", int=true}, function(v) print("Hit:", v) end, "silent_hit")
+
+-- ============================================================
+-- 2. ESP TAB – Controls + Renderer
+-- ============================================================
+local espGroup = espTab:Group("ESP Settings", "left")
+
+local espFlags = { enabled = false, box = false, name = false, skeleton = false, distance = false, healthBar = false, maxDist = 100, boxColor = Color3.fromRGB(255,255,255) }
+local espObjects = {}
+
+espGroup:Checkbox("Enable ESP", false, function(v)
+    espFlags.enabled = v
+    if not v then
+        for _, obj in ipairs(espObjects) do obj:Destroy() end
+        espObjects = {}
+    end
+end, nil, "esp_enabled")
+espGroup:Checkbox("Box", false, function(v) espFlags.box = v end, nil, "esp_box")
+espGroup:Checkbox("Name", false, function(v) espFlags.name = v end, nil, "esp_name")
+espGroup:Checkbox("Skeleton", false, function(v) espFlags.skeleton = v end, nil, "esp_skeleton")
+espGroup:Checkbox("Distance", false, function(v) espFlags.distance = v end, nil, "esp_distance")
+espGroup:Checkbox("Health Bar", false, function(v) espFlags.healthBar = v end, nil, "esp_health")
+espGroup:Slider("Max Distance", {min=10, max=500, default=100, suffix="m", int=true}, function(v) espFlags.maxDist = v end, "esp_maxdist")
+espGroup:Colorpicker({ Name = "Box Color", Default = Color3.fromRGB(255,255,255), Callback = function(c) espFlags.boxColor = c end, Flag = "esp_boxcolor" })
+espGroup:MultiDropdown("Priority", {"Distance","Health","Threat"}, {true,false,false}, function(st) print("Priority:", st) end, "esp_priority")
+
+-- TabGroup inside a group
+local tg = espGroup:TabGroup({"Aimbot", "Visuals"}, 1)
+tg:Tab(1):Checkbox("Silent Aim", false, function(v) print("Silent Aim (tab):", v) end)
+tg:Tab(2):Checkbox("Chams", false, function(v) print("Chams:", v) end)
+
+-- ESP Renderer (same as before – works)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+local function createLine(from, to, color, thickness)
+    local dx, dy = to.X - from.X, to.Y - from.Y
+    local length = math.sqrt(dx*dx + dy*dy)
+    if length < 0.1 then return nil end
+    local angle = math.atan2(dy, dx)
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(0, length, 0, thickness or 1)
+    line.Position = UDim2.new(0, from.X, 0, from.Y)
+    line.Rotation = math.deg(angle)
+    line.BackgroundColor3 = color
+    line.BorderSizePixel = 0
+    line.BackgroundTransparency = 0.2
+    line.Parent = game:GetService("CoreGui")
+    return line
+end
+
+local function updateESP()
+    if not espFlags.enabled then
+        for _, obj in ipairs(espObjects) do obj:Destroy() end
+        espObjects = {}
+        return
+    end
+    for _, obj in ipairs(espObjects) do obj:Destroy() end
+    espObjects = {}
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local char = player.Character
+        if not char then continue end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then continue end
+        local dist = (root.Position - Camera.CFrame.Position).Magnitude
+        if dist > espFlags.maxDist then continue end
+        local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+        if not onScreen then continue end
+        local x, y = screenPos.X, screenPos.Y
+        local size = math.clamp(60 / math.max(dist,1) * 3, 20, 150)
+
+        if espFlags.box then
+            local box = Instance.new("Frame")
+            box.Size = UDim2.new(0, size*1.2, 0, size*1.8)
+            box.Position = UDim2.new(0, x - size*0.6, 0, y - size*0.9)
+            box.BackgroundColor3 = espFlags.boxColor
+            box.BackgroundTransparency = 0.5
+            box.BorderSizePixel = 1
+            box.BorderColor3 = espFlags.boxColor
+            box.Parent = game:GetService("CoreGui")
+            table.insert(espObjects, box)
+        end
+
+        if espFlags.name then
+            local label = Instance.new("TextLabel")
+            label.Text = player.Name
+            label.TextColor3 = Color3.new(1,1,1)
+            label.TextScaled = true
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(0, 120, 0, 18)
+            label.Position = UDim2.new(0, x - 60, 0, y - size*0.9 - 20)
+            label.Parent = game:GetService("CoreGui")
+            table.insert(espObjects, label)
+        end
+
+        if espFlags.distance then
+            local label = Instance.new("TextLabel")
+            label.Text = string.format("%.0fm", dist)
+            label.TextColor3 = Color3.fromRGB(200,200,200)
+            label.TextScaled = true
+            label.BackgroundTransparency = 1
+            label.Size = UDim2.new(0, 60, 0, 14)
+            label.Position = UDim2.new(0, x - 30, 0, y + size*0.9 + 2)
+            label.Parent = game:GetService("CoreGui")
+            table.insert(espObjects, label)
+        end
+
+        if espFlags.healthBar then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then
+                local health = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                local back = Instance.new("Frame")
+                back.Size = UDim2.new(0, 6, 0, size*1.8)
+                back.Position = UDim2.new(0, x - size*0.6 - 10, 0, y - size*0.9)
+                back.BackgroundColor3 = Color3.fromRGB(30,30,30)
+                back.BorderSizePixel = 0
+                back.Parent = game:GetService("CoreGui")
+                table.insert(espObjects, back)
+                local fill = Instance.new("Frame")
+                fill.Size = UDim2.new(1, 0, health, 0)
+                fill.BackgroundColor3 = health > 0.5 and Color3.fromRGB(0,255,0) or (health > 0.25 and Color3.fromRGB(255,255,0) or Color3.fromRGB(255,0,0))
+                fill.BorderSizePixel = 0
+                fill.Parent = back
+                table.insert(espObjects, fill)
+            end
+        end
+
+        if espFlags.skeleton then
+            local head = char:FindFirstChild("Head")
+            local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+            local function w2s(pos)
+                local s, on = Camera:WorldToViewportPoint(pos)
+                if not on then return nil end
+                return Vector2.new(s.X, s.Y)
+            end
+            local function drawLine(a, b)
+                if not a or not b then return end
+                local line = createLine(a, b, Color3.new(1,1,1), 2)
+                if line then table.insert(espObjects, line) end
+            end
+            if head and torso then
+                drawLine(w2s(head.Position), w2s(torso.Position))
+            end
+            if torso then
+                local tPos = w2s(torso.Position)
+                for _, limb in ipairs({"LeftArm","RightArm","LeftLeg","RightLeg"}) do
+                    local part = char:FindFirstChild(limb)
+                    if part then
+                        drawLine(tPos, w2s(part.Position))
+                    end
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(updateESP)
+
+-- ============================================================
+-- 3. MISC TAB
+-- ============================================================
+local generalSec = miscTab:Group("General", "left")
+generalSec:Checkbox("Auto Unload", false, function(v) print("Auto unload:", v) end, nil, "auto_unload")
+generalSec:Checkbox("Watermark", true, function(v)
+    Library.WatermarkVisible = v
+    Library:_UpdateWatermark()
+end, nil, "watermark_visible")
+generalSec:Slider("FPS Cap", {min=30, max=240, default=60, suffix=" fps", int=true}, function(v) print("FPS cap:", v) end, "fps_cap")
+
+local perfSec = miscTab:Group("Performance", "right")
+perfSec:Checkbox("Benchmark Mode", false, function(v) print("Benchmark:", v) end, nil, "benchmark")
+perfSec:Slider("Update Rate", {min=10, max=120, default=60, suffix=" Hz", int=true}, function(v) print("Update rate:", v) end, "update_rate")
+
+-- ============================================================
+-- 4. THEME TAB
+-- ============================================================
+local themeGroup = themeTab:Group("Theme Settings", "left")
+local themeOptions = {}
+for name, _ in pairs(Library.Presets) do table.insert(themeOptions, name) end
+table.sort(themeOptions)
+themeGroup:Dropdown({
+    Name = "Theme",
+    Options = themeOptions,
+    Default = "Default",
+    Callback = function(_, name) Library:SetPresetTheme(name) end,
+    Flag = "selected_theme"
+})
+themeGroup:Button({ Name = "Reset Theme", Callback = function() Library:ResetThemeToDefault() end })
+
+-- ============================================================
+-- 5. DOCK (movable button bar)
+-- ============================================================
+Library:Dock({
+    Buttons = {
+        { Icon = "rbxassetid://111911305350051", Toggle = true, Default = true, Callback = function(s) win:Visible(s) end },
+        { Icon = "rbxassetid://111911305350051", Callback = function() print("Dock clicked") end },
+        { Icon = "rbxassetid://111911305350051", Toggle = true, Default = false, Callback = function(s) print("Toggle:", s) end }
+    }
+})
+
+-- ============================================================
+-- 6. WATERMARK (live stats)
+-- ============================================================
+Library:Watermark({
+    Name = "Lunex",
+    Modules = {
+        { Type = "Fps" },
+        { Type = "Ping" },
+        { Type = "Time" },
+        { Type = "Text", Value = "v2" }
+    }
+})
+
+-- ============================================================
+-- 7. KEYBIND LIST
+-- ============================================================
+local keybindList = Library:KeybindList()
+-- Add the aimbot toggle's keybind
+if aimbotKeybind then
+    keybindList:AddEntry(aimbotKeybind)
+end
+-- Add a standalone keybind
+local silentKeybind = aimbotSec:Keybind({ Name = "Silent Aim Key", Key = Enum.KeyCode.Q, Mode = "Toggle", Callback = function() end })
+keybindList:AddEntry(silentKeybind)
+
+-- ============================================================
+-- 8. BIND TOGGLE (Insert key)
+-- ============================================================
+Library:BindToggle(win)
+
+print("✅ Lunex UI V2 example loaded! Press Insert to toggle UI.")
