@@ -769,6 +769,10 @@ function Library:Window(options)
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
 
+    -- Override title to use normal (non-pixel) font
+    title_label.FontFace = nil
+    title_label.Font = FONT_BOLD
+
     Library:RegisterThemeCallback(function()
         local accent_hex = string.format("#%02X%02X%02X",
             math.floor(Library.Theme.Accent.R * 255),
