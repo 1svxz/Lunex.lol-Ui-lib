@@ -1189,6 +1189,8 @@ local function next_row(group, height)
     return row
 end
 
+-- Standard controls
+
 function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     extra = extra or {}
     local state = default and true or false
@@ -1834,375 +1836,6 @@ function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
     return ctrl
 end
 
--- ============================================================
--- NEW: DIVIDER
--- ============================================================
-function Library._GroupMethods:Divider()
-    local row = next_row(self, 12) -- small height
-    local line = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, -12, 0, 2),
-        Position = UDim2.new(0, 6, 0.5, -1),
-        ZIndex = 3,
-    }, row)
-    Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
-    return row
-end
-
--- ============================================================
--- NEW: TAB BOX (Group with tabs, max 3)
--- ============================================================
-function Library._GroupMethods:TabBox(title, tabs)
-    -- tabs is a table: { {name = "Tab1", content = function(tab_frame) ... end}, ... } max 3
-    local group = self
-    local tab_count = math.min(#tabs, 3)
-
-    local row = next_row(group, 30 + 16 * tab_count) -- enough height for tabs and content
-
-    local outer = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.OuterBorder,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
-        ZIndex = 3,
-    }, row)
-    Library:RegisterTheme(outer, "BackgroundColor3", "OuterBorder")
-
-    local inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        ZIndex = 3,
-    }, outer)
-    Library:RegisterTheme(inner, "BackgroundColor3", "InnerBorder")
-
-    local fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.ChildFill,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 1, -4),
-        ZIndex = 3,
-    }, inner)
-    Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
-
-    -- Tab bar
-    local tab_bar = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 16),
-        ZIndex = 4,
-    }, fill)
-
-    local content_frame = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 1, -16),
-        ClipsDescendants = true,
-        ZIndex = 3,
-    }, fill)
-
-    -- Tab buttons
-    local tab_buttons = {}
-    local active_tab_index = 1
-    local tab_width = 1 / tab_count
-
-    for i, tab_info in ipairs(tabs) do
-        local btn = new_instance("TextButton", {
-            Name = tab_info.name,
-            Text = "",
-            AutoButtonColor = false,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(tab_width, -1, 1, 0),
-            Position = UDim2.new((i-1)/tab_count, 0, 0, 0),
-            ZIndex = 5,
-        }, tab_bar)
-
-        local t_outer = new_instance("Frame", {
-            BackgroundColor3 = Library.Theme.ContentOuter,
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            ZIndex = 4,
-        }, btn)
-        Library:RegisterTheme(t_outer, "BackgroundColor3", "ContentOuter")
-
-        local t_inner = new_instance("Frame", {
-            BackgroundColor3 = Library.Theme.ContentInner,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            ZIndex = 4,
-        }, t_outer)
-        Library:RegisterTheme(t_inner, "BackgroundColor3", "ContentInner")
-
-        local t_fill = new_instance("Frame", {
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 1, -4),
-            ZIndex = 4,
-        }, t_outer)
-        local grad = new_instance("UIGradient", { Rotation = 90 }, t_fill)
-        Library:RegisterThemeCallback(function()
-            grad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, Library.Theme.TabTop),
-                ColorSequenceKeypoint.new(0.50, Library.Theme.TabMid),
-                ColorSequenceKeypoint.new(1.00, Library.Theme.TabBottom),
-            })
-        end)
-
-        local label = make_label(btn, tab_info.name, "TabInactive", {
-            Size = UDim2.fromScale(1, 1),
-            TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 6,
-        })
-
-        -- Tab content frame
-        local tab_content = new_instance("Frame", {
-            Name = tab_info.name,
-            BackgroundTransparency = 1,
-            Visible = (i == 1),
-            Size = UDim2.fromScale(1, 1),
-            ZIndex = 3,
-            ClipsDescendants = false,
-        }, content_frame)
-
-        local padding = new_instance("UIPadding", {
-            PaddingLeft = UDim.new(0, 4),
-            PaddingTop = UDim.new(0, 4),
-            PaddingRight = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
-        }, tab_content)
-        local layout = new_instance("UIListLayout", {
-            FillDirection = Enum.FillDirection.Vertical,
-            Padding = UDim.new(0, 4),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-        }, tab_content)
-
-        -- Call content builder with the tab content frame
-        if tab_info.content then
-            tab_info.content(tab_content)
-        end
-
-        -- Store tab data
-        local tab_data = {
-            Button = btn,
-            Label = label,
-            Outer = t_outer,
-            Inner = t_inner,
-            Fill = t_fill,
-            Grad = grad,
-            Content = tab_content,
-            Layout = layout,
-            Padding = padding,
-        }
-        tab_buttons[i] = tab_data
-
-        -- Click handler
-        btn.MouseButton1Click:Connect(function()
-            if active_tab_index == i then return end
-            -- hide old
-            tab_buttons[active_tab_index].Content.Visible = false
-            tab_buttons[active_tab_index].Label.TextColor3 = Library.Theme.TabInactive
-            -- show new
-            tab_data.Content.Visible = true
-            tab_data.Label.TextColor3 = Library.Theme.Accent
-            active_tab_index = i
-            -- update size
-            local content_h = tab_data.Layout.AbsoluteContentSize.Y
-            local pad = tab_data.Padding
-            local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-            local desired_height = math.max(16 + 8, total_h) + 4 -- base + padding
-            row.Size = UDim2.new(1, 0, 0, desired_height)
-            if group._update_size then
-                task.defer(group._update_size)
-            end
-        end)
-
-        -- size update when content changes
-        local function update_tab_size()
-            if tab_data.Content.Visible then
-                local content_h = tab_data.Layout.AbsoluteContentSize.Y
-                local pad = tab_data.Padding
-                local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-                local desired_height = math.max(16 + 8, total_h) + 4
-                row.Size = UDim2.new(1, 0, 0, desired_height)
-                if group._update_size then
-                    task.defer(group._update_size)
-                end
-            end
-        end
-        tab_data.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update_tab_size)
-        tab_data.Content.ChildAdded:Connect(function() task.defer(update_tab_size) end)
-        tab_data.Content.ChildRemoved:Connect(function() task.defer(update_tab_size) end)
-    end
-
-    -- activate first tab
-    if #tab_buttons > 0 then
-        tab_buttons[1].Label.TextColor3 = Library.Theme.Accent
-        tab_buttons[1].Content.Visible = true
-        local layout = tab_buttons[1].Layout
-        local pad = tab_buttons[1].Padding
-        task.wait()
-        local content_h = layout.AbsoluteContentSize.Y
-        local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-        local desired_height = math.max(16 + 8, total_h) + 4
-        row.Size = UDim2.new(1, 0, 0, desired_height)
-        if group._update_size then
-            task.defer(group._update_size)
-        end
-    end
-
-    return row
-end
-
--- ============================================================
--- NEW: TOGGLE WITH KEYBIND (Combines checkbox + keybind)
--- ============================================================
-function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
-    local state = default_state and true or false
-    local key = default_key or Enum.KeyCode.None
-
-    local row = next_row(self, 34) -- taller row
-
-    -- Checkbox part (left)
-    local btn = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.fromOffset(0, 1),
-        ZIndex = 3,
-    }, row)
-    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 3 })
-    local accent = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.Accent,
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = state and 0 or 1,
-        ZIndex = 3,
-    }, fill)
-    vertical_gradient(accent, "Accent", "AccentDark")
-
-    local label = make_label(row, text, state and "TextActive" or "TextInactive", {
-        Position = UDim2.fromOffset(19, 0),
-        Size = UDim2.new(1, -80, 1, 0),
-        ZIndex = 3,
-    })
-
-    -- Keybind button (right)
-    local box = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, 0, 0, 1),
-        Size = UDim2.fromOffset(60, 12),
-        ZIndex = 4,
-    }, row)
-    local _, b_fill = framed_box(box, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 4 })
-    local key_label = make_label(b_fill, key_text(key), "TextInactive", {
-        Size = UDim2.fromScale(1, 1),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 5,
-        TextSize = 11,
-    })
-
-    Library:RegisterThemeCallback(function()
-        label.TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive
-    end)
-
-    local function set_state(val, fire_callback)
-        state = val and true or false
-        if flag then Library.Flags[flag] = {state = state, key = key} end
-        tween(accent, 0.12, { BackgroundTransparency = state and 0 or 1 }):Play()
-        tween(label, 0.12, { TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive }):Play()
-        if fire_callback ~= false and callback then
-            task.spawn(callback, state, key)
-        end
-    end
-
-    local function set_key(k, fire_callback)
-        key = k or Enum.KeyCode.None
-        key_label.Text = key_text(key)
-        if flag then Library.Flags[flag] = {state = state, key = key} end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, state, key)
-        end
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        set_state(not state, true)
-    end)
-    btn.MouseEnter:Connect(function()
-        if not state then
-            tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(39, 40, 57) }):Play()
-        end
-    end)
-    btn.MouseLeave:Connect(function()
-        if not state then
-            tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ChildFill }):Play()
-        end
-    end)
-
-    -- Keybind listening
-    local listening = false
-    box.MouseButton1Click:Connect(function()
-        listening = true
-        key_label.Text = "..."
-        key_label.TextColor3 = Library.Theme.Accent
-        local conn
-        conn = UserInputService.InputBegan:Connect(function(input, game_processed)
-            if not listening then return end
-            local k
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                if input.KeyCode == Enum.KeyCode.Escape then
-                    k = nil
-                else
-                    k = input.KeyCode
-                end
-            elseif input.UserInputType == Enum.UserInputType.MouseButton1 or
-                   input.UserInputType == Enum.UserInputType.MouseButton2 or
-                   input.UserInputType == Enum.UserInputType.MouseButton3 or
-                   input.UserInputType == Enum.UserInputType.Touch then
-                k = input.UserInputType
-            else
-                return
-            end
-            listening = false
-            conn:Disconnect()
-            set_key(k, true)
-            key_label.TextColor3 = Library.Theme.TextInactive
-        end)
-    end)
-
-    -- Initial flag
-    if flag then
-        Library.Flags[flag] = {state = state, key = key}
-        Library.Controls[flag] = {
-            Set = function(_, v, f)
-                if type(v) == "table" then
-                    set_state(v.state, f)
-                    set_key(v.key, f)
-                else
-                    set_state(v, f)
-                end
-            end,
-            Get = function() return {state = state, key = key} end,
-        }
-        Library.Defaults[flag] = {state = state, key = key}
-    end
-
-    if callback and default_state ~= nil then
-        task.spawn(callback, state, key)
-    end
-
-    return {
-        SetState = set_state,
-        SetKey = set_key,
-        Get = function() return {state = state, key = key} end,
-    }
-end
-
 function Library._GroupMethods:TextBox(text, default, callback, flag)
     local row = next_row(self, 34)
     make_label(row, text, "TextInactive", {
@@ -2291,6 +1924,362 @@ function Library._GroupMethods:Label(text)
     })
 end
 
+-- ============================================================
+-- NEW: DIVIDER
+-- ============================================================
+function Library._GroupMethods:Divider()
+    local row = next_row(self, 12)
+    local line = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.InnerBorder,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, -12, 0, 2),
+        Position = UDim2.new(0, 6, 0.5, -1),
+        ZIndex = 3,
+    }, row)
+    Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
+    return row
+end
+
+-- ============================================================
+-- NEW: TAB BOX (max 3 tabs)
+-- ============================================================
+function Library._GroupMethods:TabBox(title, tabs)
+    local group = self
+    local tab_count = math.min(#tabs, 3)
+
+    local row = next_row(group, 30 + 16 * tab_count)
+
+    local outer = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.OuterBorder,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 1, 0),
+        ZIndex = 3,
+    }, row)
+    Library:RegisterTheme(outer, "BackgroundColor3", "OuterBorder")
+
+    local inner = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.InnerBorder,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(1, 1),
+        Size = UDim2.new(1, -2, 1, -2),
+        ZIndex = 3,
+    }, outer)
+    Library:RegisterTheme(inner, "BackgroundColor3", "InnerBorder")
+
+    local fill = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.ChildFill,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.new(1, -4, 1, -4),
+        ZIndex = 3,
+    }, inner)
+    Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
+
+    local tab_bar = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 16),
+        ZIndex = 4,
+    }, fill)
+
+    local content_frame = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 1, -16),
+        ClipsDescendants = true,
+        ZIndex = 3,
+    }, fill)
+
+    local tab_buttons = {}
+    local active_tab_index = 1
+    local tab_width = 1 / tab_count
+
+    for i, tab_info in ipairs(tabs) do
+        local btn = new_instance("TextButton", {
+            Name = tab_info.name,
+            Text = "",
+            AutoButtonColor = false,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(tab_width, -1, 1, 0),
+            Position = UDim2.new((i-1)/tab_count, 0, 0, 0),
+            ZIndex = 5,
+        }, tab_bar)
+
+        local t_outer = new_instance("Frame", {
+            BackgroundColor3 = Library.Theme.ContentOuter,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 4,
+        }, btn)
+        Library:RegisterTheme(t_outer, "BackgroundColor3", "ContentOuter")
+
+        local t_inner = new_instance("Frame", {
+            BackgroundColor3 = Library.Theme.ContentInner,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            ZIndex = 4,
+        }, t_outer)
+        Library:RegisterTheme(t_inner, "BackgroundColor3", "ContentInner")
+
+        local t_fill = new_instance("Frame", {
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 1, -4),
+            ZIndex = 4,
+        }, t_outer)
+        local grad = new_instance("UIGradient", { Rotation = 90 }, t_fill)
+        Library:RegisterThemeCallback(function()
+            grad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, Library.Theme.TabTop),
+                ColorSequenceKeypoint.new(0.50, Library.Theme.TabMid),
+                ColorSequenceKeypoint.new(1.00, Library.Theme.TabBottom),
+            })
+        end)
+
+        local label = make_label(btn, tab_info.name, "TabInactive", {
+            Size = UDim2.fromScale(1, 1),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 6,
+        })
+
+        local tab_content = new_instance("Frame", {
+            Name = tab_info.name,
+            BackgroundTransparency = 1,
+            Visible = (i == 1),
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 3,
+            ClipsDescendants = false,
+        }, content_frame)
+
+        local padding = new_instance("UIPadding", {
+            PaddingLeft = UDim.new(0, 4),
+            PaddingTop = UDim.new(0, 4),
+            PaddingRight = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+        }, tab_content)
+        local layout = new_instance("UIListLayout", {
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        }, tab_content)
+
+        if tab_info.content then
+            tab_info.content(tab_content)
+        end
+
+        local tab_data = {
+            Button = btn,
+            Label = label,
+            Outer = t_outer,
+            Inner = t_inner,
+            Fill = t_fill,
+            Grad = grad,
+            Content = tab_content,
+            Layout = layout,
+            Padding = padding,
+        }
+        tab_buttons[i] = tab_data
+
+        btn.MouseButton1Click:Connect(function()
+            if active_tab_index == i then return end
+            tab_buttons[active_tab_index].Content.Visible = false
+            tab_buttons[active_tab_index].Label.TextColor3 = Library.Theme.TabInactive
+            tab_data.Content.Visible = true
+            tab_data.Label.TextColor3 = Library.Theme.Accent
+            active_tab_index = i
+            local content_h = tab_data.Layout.AbsoluteContentSize.Y
+            local pad = tab_data.Padding
+            local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+            local desired_height = math.max(16 + 8, total_h) + 4
+            row.Size = UDim2.new(1, 0, 0, desired_height)
+            if group._update_size then
+                task.defer(group._update_size)
+            end
+        end)
+
+        local function update_tab_size()
+            if tab_data.Content.Visible then
+                local content_h = tab_data.Layout.AbsoluteContentSize.Y
+                local pad = tab_data.Padding
+                local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+                local desired_height = math.max(16 + 8, total_h) + 4
+                row.Size = UDim2.new(1, 0, 0, desired_height)
+                if group._update_size then
+                    task.defer(group._update_size)
+                end
+            end
+        end
+        tab_data.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update_tab_size)
+        tab_data.Content.ChildAdded:Connect(function() task.defer(update_tab_size) end)
+        tab_data.Content.ChildRemoved:Connect(function() task.defer(update_tab_size) end)
+    end
+
+    if #tab_buttons > 0 then
+        tab_buttons[1].Label.TextColor3 = Library.Theme.Accent
+        tab_buttons[1].Content.Visible = true
+        local layout = tab_buttons[1].Layout
+        local pad = tab_buttons[1].Padding
+        task.wait()
+        local content_h = layout.AbsoluteContentSize.Y
+        local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+        local desired_height = math.max(16 + 8, total_h) + 4
+        row.Size = UDim2.new(1, 0, 0, desired_height)
+        if group._update_size then
+            task.defer(group._update_size)
+        end
+    end
+
+    return row
+end
+
+-- ============================================================
+-- NEW: TOGGLE WITH KEYBIND
+-- ============================================================
+function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
+    local state = default_state and true or false
+    local key = default_key or Enum.KeyCode.None
+
+    local row = next_row(self, 34)
+
+    local btn = new_instance("TextButton", {
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(12, 12),
+        Position = UDim2.fromOffset(0, 1),
+        ZIndex = 3,
+    }, row)
+    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 3 })
+    local accent = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.Accent,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = state and 0 or 1,
+        ZIndex = 3,
+    }, fill)
+    vertical_gradient(accent, "Accent", "AccentDark")
+
+    local label = make_label(row, text, state and "TextActive" or "TextInactive", {
+        Position = UDim2.fromOffset(19, 0),
+        Size = UDim2.new(1, -80, 1, 0),
+        ZIndex = 3,
+    })
+
+    local box = new_instance("TextButton", {
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, 0, 0, 1),
+        Size = UDim2.fromOffset(60, 12),
+        ZIndex = 4,
+    }, row)
+    local _, b_fill = framed_box(box, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 4 })
+    local key_label = make_label(b_fill, key_text(key), "TextInactive", {
+        Size = UDim2.fromScale(1, 1),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 5,
+        TextSize = 11,
+    })
+
+    Library:RegisterThemeCallback(function()
+        label.TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive
+    end)
+
+    local function set_state(val, fire_callback)
+        state = val and true or false
+        if flag then Library.Flags[flag] = {state = state, key = key} end
+        tween(accent, 0.12, { BackgroundTransparency = state and 0 or 1 }):Play()
+        tween(label, 0.12, { TextColor3 = state and Library.Theme.TextActive or Library.Theme.TextInactive }):Play()
+        if fire_callback ~= false and callback then
+            task.spawn(callback, state, key)
+        end
+    end
+
+    local function set_key(k, fire_callback)
+        key = k or Enum.KeyCode.None
+        key_label.Text = key_text(key)
+        if flag then Library.Flags[flag] = {state = state, key = key} end
+        if fire_callback ~= false and callback then
+            task.spawn(callback, state, key)
+        end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        set_state(not state, true)
+    end)
+    btn.MouseEnter:Connect(function()
+        if not state then
+            tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(39, 40, 57) }):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if not state then
+            tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ChildFill }):Play()
+        end
+    end)
+
+    local listening = false
+    box.MouseButton1Click:Connect(function()
+        listening = true
+        key_label.Text = "..."
+        key_label.TextColor3 = Library.Theme.Accent
+        local conn
+        conn = UserInputService.InputBegan:Connect(function(input, game_processed)
+            if not listening then return end
+            local k
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    k = nil
+                else
+                    k = input.KeyCode
+                end
+            elseif input.UserInputType == Enum.UserInputType.MouseButton1 or
+                   input.UserInputType == Enum.UserInputType.MouseButton2 or
+                   input.UserInputType == Enum.UserInputType.MouseButton3 or
+                   input.UserInputType == Enum.UserInputType.Touch then
+                k = input.UserInputType
+            else
+                return
+            end
+            listening = false
+            conn:Disconnect()
+            set_key(k, true)
+            key_label.TextColor3 = Library.Theme.TextInactive
+        end)
+    end)
+
+    if flag then
+        Library.Flags[flag] = {state = state, key = key}
+        Library.Controls[flag] = {
+            Set = function(_, v, f)
+                if type(v) == "table" then
+                    set_state(v.state, f)
+                    set_key(v.key, f)
+                else
+                    set_state(v, f)
+                end
+            end,
+            Get = function() return {state = state, key = key} end,
+        }
+        Library.Defaults[flag] = {state = state, key = key}
+    end
+
+    if callback and default_state ~= nil then
+        task.spawn(callback, state, key)
+    end
+
+    return {
+        SetState = set_state,
+        SetKey = set_key,
+        Get = function() return {state = state, key = key} end,
+    }
+end
+
+-- ============================================================
+-- COLOR PICKER (full implementation)
+-- ============================================================
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
     local W = 150
@@ -2438,6 +2427,9 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     end
 end
 
+-- ============================================================
+-- BUILT-IN MANAGERS
+-- ============================================================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
 
@@ -2671,6 +2663,9 @@ function Library:CreateUICustomization(tab, side)
     return group
 end
 
+-- ============================================================
+-- WATERMARK
+-- ============================================================
 Library.WatermarkVisible = false
 Library.WatermarkOptions = {}
 Library._WatermarkHost = nil
@@ -2799,6 +2794,9 @@ function Library:_UpdateWatermark()
     Library._WatermarkHost = host
 end
 
+-- ============================================================
+-- MOBILE TOGGLE
+-- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     local logo_asset = nil
     local logo_url = "https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/refs/heads/main/BackgroundEraser_20260821_225640829.png"
@@ -2867,6 +2865,9 @@ function Library:CreateMobileToggle(on_toggle)
     return host
 end
 
+-- ============================================================
+-- CUSTOM CURSOR
+-- ============================================================
 local function make_cursor()
     local S = 11
     local C = math.floor(S / 2)
@@ -2945,6 +2946,9 @@ local function set_cursor_enabled(on)
     end
 end
 
+-- ============================================================
+-- BIND TOGGLE
+-- ============================================================
 function Library:BindToggle(window)
     local visible = true
     set_cursor_enabled(true)
