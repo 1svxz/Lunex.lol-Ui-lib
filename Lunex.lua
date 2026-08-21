@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – TRANSPARENT BACKGROUND & BIG SIZE (64x64)
+-- MOBILE TOGGLE – BIG LOGO, SMALLER INVISIBLE BACKGROUND
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,26 +2446,28 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – fully transparent host
+    -- 2. Create the Toggle UI – smaller invisible host, no clipping
     local host = new_instance("Frame", {
         Name = "MobileToggle",
-        BackgroundTransparency = 1,          -- No background
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(64, 64),     -- Bigger size
+        Size = UDim2.fromOffset(44, 44),      -- smaller click area
+        ClipsDescendants = false,             -- allow image to overflow
         ZIndex = 600,
     }, screen_gui)
 
-    -- 3. ImageButton (the logo)
+    -- 3. ImageButton – bigger than the host, centered
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
-        Image = logo_asset or "rbxassetid://1234567890", -- Fallback
+        Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
+        Size = UDim2.fromOffset(70, 70),      -- bigger than host
+        Position = UDim2.new(0.5, -35, 0.5, -35),
+        AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
         ScaleType = Enum.ScaleType.Fit,
-        -- ImageColor3 = Library.Theme.Accent, -- Optionally tint
     }, host)
 
     -- 4. Dragging and Clicking logic (unchanged)
