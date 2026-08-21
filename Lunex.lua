@@ -1,8 +1,3 @@
--- ============================================================
--- LUNEX UI LIBRARY – Direct folder scanning, no index files
--- Source: https://github.com/1svxz/Lunex.lol-Ui-lib
--- ============================================================
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService    = game:GetService("TweenService")
 local RunService      = game:GetService("RunService")
@@ -15,9 +10,6 @@ local CONFIG_FOLDER   = "Lunex.lol"
 local CONFIGS_PATH    = CONFIG_FOLDER .. "/Configs"
 local THEMES_PATH     = CONFIG_FOLDER .. "/Themes"
 
--- -----------------------------------------------------------------
--- Helpers: folders, tables, gui parent
--- -----------------------------------------------------------------
 local function ensure_folders()
     if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
         pcall(makefolder, CONFIG_FOLDER)
@@ -46,9 +38,6 @@ local function get_gui_parent()
     return LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- -----------------------------------------------------------------
--- Preset themes
--- -----------------------------------------------------------------
 local PRESET_THEMES = {
     Default = {
         Accent        = Color3.fromRGB(200, 68, 240),
@@ -150,9 +139,6 @@ local FONT_FACE = nil
 local FONT_SIZE = 13
 local STROKE_T  = 0.55
 
--- -----------------------------------------------------------------
--- Library main table
--- -----------------------------------------------------------------
 local Library = {}
 Library.Theme         = deep_copy(PRESET_THEMES.Default)
 Library.Presets       = PRESET_THEMES
@@ -167,9 +153,38 @@ Library.ThemeRegistry  = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers   = {}
 
--- -----------------------------------------------------------------
--- Theme registry / callbacks
--- -----------------------------------------------------------------
+do
+    function RegisterFont(Name, Weight, Style, Asset)
+        if not isfile(Asset.Id) then
+            writefile(Asset.Id, Asset.Font)
+        end
+        if isfile(Name .. ".font") then
+            delfile(Name .. ".font")
+        end
+        local Data = {
+            name = Name,
+            faces = {
+                {
+                    name = "Normal",
+                    weight = Weight,
+                    style = Style,
+                    assetId = getcustomasset(Asset.Id),
+                },
+            },
+        }
+        writefile(Name .. ".font", HttpService:JSONEncode(Data))
+        return getcustomasset(Name .. ".font")
+    end
+
+    local PixelFont = RegisterFont("MyPixelFont", 400, "Normal", {
+        Id = "pixel_font.ttf",
+        Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"),
+    })
+
+    Library.Font = Font.new(PixelFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    FONT_FACE = Library.Font
+end
+
 function Library:RegisterTheme(inst, prop, key)
     if not inst then return end
     table.insert(self.ThemeRegistry, {Inst = inst, Prop = prop, Key = key})
@@ -205,9 +220,6 @@ function Library:RefreshTheme()
     end
 end
 
--- -----------------------------------------------------------------
--- Utility: instance creation, font, outlined text, frames
--- -----------------------------------------------------------------
 local function new_instance(class, props, parent)
     local obj = Instance.new(class)
     if props then
@@ -321,9 +333,6 @@ local function tween(obj, duration, goal)
     return TweenService:Create(obj, TweenInfo.new(duration or 0.12, Enum.EasingStyle.Quad), goal)
 end
 
--- -----------------------------------------------------------------
--- Key name mapping
--- -----------------------------------------------------------------
 local KEY_NAMES = {
     [Enum.UserInputType.MouseButton1] = "LM",
     [Enum.UserInputType.MouseButton2] = "RM",
@@ -347,9 +356,6 @@ local function key_text(key)
     return "?"
 end
 
--- -----------------------------------------------------------------
--- ScreenGui & popup layer
--- -----------------------------------------------------------------
 local screen_gui = new_instance("ScreenGui", {
     Name            = "ui",
     IgnoreGuiInset  = true,
@@ -378,9 +384,6 @@ end
 local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
--- -----------------------------------------------------------------
--- Tab positioning helpers
--- -----------------------------------------------------------------
 local function sync_tab_gap(window)
     local tab = window.ActiveTab
     if not tab then return end
@@ -440,9 +443,6 @@ local function is_move(input)
            input.UserInputType == Enum.UserInputType.Touch
 end
 
--- -----------------------------------------------------------------
--- Serialization helpers for config/theme
--- -----------------------------------------------------------------
 local function serialize(val)
     if typeof(val) == "Color3" then
         return {__type = "Color3", r = val.R, g = val.G, b = val.B}
@@ -466,9 +466,6 @@ local function deserialize(val)
     return val
 end
 
--- -----------------------------------------------------------------
--- Folder scanning (no index files)
--- -----------------------------------------------------------------
 local function scan_config_files()
     local files = {}
     if not isfolder or not listfiles then return files end
@@ -501,9 +498,6 @@ local function scan_theme_files()
     return files
 end
 
--- -----------------------------------------------------------------
--- Config methods
--- -----------------------------------------------------------------
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensure_folders()
@@ -585,9 +579,6 @@ function Library:ResetToDefaults()
     end
 end
 
--- -----------------------------------------------------------------
--- Theme methods
--- -----------------------------------------------------------------
 function Library:SaveTheme(theme_name)
     if not writefile then return end
     ensure_folders()
@@ -641,9 +632,6 @@ function Library:ResetThemeToDefault()
     self:RefreshTheme()
 end
 
--- -----------------------------------------------------------------
--- Resize handles
--- -----------------------------------------------------------------
 local function add_resize_handles(canvas, on_resize, window_ref)
     local T = 8
     local host = new_instance("Frame", {
@@ -720,9 +708,6 @@ local function add_resize_handles(canvas, on_resize, window_ref)
     end
 end
 
--- -----------------------------------------------------------------
--- Window constructor
--- -----------------------------------------------------------------
 function Library:Window(options)
     options = options or {}
     local size = options.Size or Vector2.new(480, 450)
@@ -865,7 +850,6 @@ function Library:Window(options)
         AutoButtonColor = false,
     }, canvas)
 
-    -- Drag logic
     do
         local dragging, start_pos, start_input = false, nil, nil
         drag_zone.InputBegan:Connect(function(input)
@@ -922,9 +906,6 @@ function Library:Window(options)
     return window
 end
 
--- -----------------------------------------------------------------
--- Window methods
--- -----------------------------------------------------------------
 Library._WindowMethods = {}
 
 function Library._WindowMethods:Tab(name)
@@ -1002,7 +983,6 @@ function Library._WindowMethods:Tab(name)
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, page)
 
-    -- Left column
     local left_col = new_instance("ScrollingFrame", {
         Name = "LeftCol",
         BackgroundTransparency = 1,
@@ -1017,9 +997,8 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(left_col, "ScrollBarImageColor3", "Accent")
-    -- Add right padding to keep content away from scrollbar
     new_instance("UIPadding", {
-        PaddingRight = UDim.new(0, 4), -- match scrollbar thickness
+        PaddingRight = UDim.new(0, 4),
     }, left_col)
 
     new_instance("UIListLayout", {
@@ -1028,7 +1007,6 @@ function Library._WindowMethods:Tab(name)
         SortOrder     = Enum.SortOrder.LayoutOrder,
     }, left_col)
 
-    -- Right column
     local right_col = new_instance("ScrollingFrame", {
         Name = "RightCol",
         BackgroundTransparency = 1,
@@ -1043,7 +1021,6 @@ function Library._WindowMethods:Tab(name)
         ClipsDescendants = true,
     }, page)
     Library:RegisterTheme(right_col, "ScrollBarImageColor3", "Accent")
-    -- Same padding on the right column
     new_instance("UIPadding", {
         PaddingRight = UDim.new(0, 4),
     }, right_col)
@@ -1117,9 +1094,6 @@ function Library._WindowMethods:Tab(name)
     return tab
 end
 
--- -----------------------------------------------------------------
--- Tab methods
--- -----------------------------------------------------------------
 Library._TabMethods = {}
 
 function Library._TabMethods:Group(title, side)
@@ -1235,9 +1209,6 @@ function Library._TabMethods:Group(title, side)
     return group
 end
 
--- -----------------------------------------------------------------
--- Group methods (controls)
--- -----------------------------------------------------------------
 Library._GroupMethods = {}
 
 local function next_row(group, height)
@@ -1987,9 +1958,6 @@ function Library._GroupMethods:Label(text)
     })
 end
 
--- -----------------------------------------------------------------
--- Color picker
--- -----------------------------------------------------------------
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
     local W = 150
@@ -2137,9 +2105,6 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     end
 end
 
--- -----------------------------------------------------------------
--- Built‑in Config Manager (scans folder live)
--- -----------------------------------------------------------------
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
 
@@ -2201,9 +2166,6 @@ function Library:CreateConfigManager(tab, side)
     return group
 end
 
--- -----------------------------------------------------------------
--- Built‑in Theme Manager (scans folder live)
--- -----------------------------------------------------------------
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
 
@@ -2270,9 +2232,6 @@ function Library:CreateThemeManager(tab, side)
     return group
 end
 
--- -----------------------------------------------------------------
--- Built‑in UI Customisation
--- -----------------------------------------------------------------
 function Library:CreateUICustomization(tab, side)
     local group = tab:Group("UI Customization", side or "left")
 
@@ -2379,9 +2338,6 @@ function Library:CreateUICustomization(tab, side)
     return group
 end
 
--- -----------------------------------------------------------------
--- Watermark
--- -----------------------------------------------------------------
 Library.WatermarkVisible = false
 Library.WatermarkOptions = {}
 Library._WatermarkHost = nil
@@ -2510,9 +2466,6 @@ function Library:_UpdateWatermark()
     Library._WatermarkHost = host
 end
 
--- -----------------------------------------------------------------
--- Mobile toggle
--- -----------------------------------------------------------------
 function Library:CreateMobileToggle(on_toggle)
     local host = new_instance("Frame", {
         Name = "MobileToggle",
@@ -2587,9 +2540,6 @@ function Library:CreateMobileToggle(on_toggle)
     return host
 end
 
--- -----------------------------------------------------------------
--- Custom cursor
--- -----------------------------------------------------------------
 local function make_cursor()
     local S = 11
     local C = math.floor(S / 2)
@@ -2668,9 +2618,6 @@ local function set_cursor_enabled(on)
     end
 end
 
--- -----------------------------------------------------------------
--- Toggle binding
--- -----------------------------------------------------------------
 function Library:BindToggle(window)
     local visible = true
     set_cursor_enabled(true)
