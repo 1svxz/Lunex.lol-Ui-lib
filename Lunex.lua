@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- REPLACED MOBILE TOGGLE WITH LOGO IMAGE
+-- MOBILE TOGGLE – TRANSPARENT BACKGROUND & BIG SIZE (64x64)
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,46 +2446,27 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI
+    -- 2. Create the Toggle UI – fully transparent host
     local host = new_instance("Frame", {
         Name = "MobileToggle",
-        BackgroundColor3 = Library.Theme.OuterBorder,
+        BackgroundTransparency = 1,          -- No background
         BorderSizePixel = 0,
         Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(42, 42), 
+        Size = UDim2.fromOffset(64, 64),     -- Bigger size
         ZIndex = 600,
     }, screen_gui)
-    Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
 
-    local f_inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        ZIndex = 600,
-    }, host)
-    Library:RegisterTheme(f_inner, "BackgroundColor3", "InnerBorder")
-
-    local fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.PanelFill,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 1, -4),
-        ZIndex = 600,
-    }, host)
-    Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-
-    -- 3. Create the ImageButton (with the downloaded logo)
+    -- 3. ImageButton (the logo)
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
-        Image = logo_asset or "rbxassetid://1234567890", -- Fallback ID if download fails
+        Image = logo_asset or "rbxassetid://1234567890", -- Fallback
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 601,
         AutoButtonColor = false,
         ScaleType = Enum.ScaleType.Fit,
-        -- ImageColor3 = Library.Theme.Accent, -- Uncomment if you want it tinted to theme color
-    }, fill)
+        -- ImageColor3 = Library.Theme.Accent, -- Optionally tint
+    }, host)
 
     -- 4. Dragging and Clicking logic (unchanged)
     local dragging, start_pos, start_input = false, nil, nil
