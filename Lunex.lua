@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – BIG LOGO (135x135), RIGHT CORNER, HIGHER UP
+-- MOBILE TOGGLE – EXACT POSITION: UDim2.new(1, -95, 0, 5)
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,13 +2446,12 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – host is small but transparent, positioned top‑right
-    --    Reduced Y offset from 20 to 5 (moved higher)
+    -- 2. Create the Toggle UI – position exactly as specified: 1, -95, 0, 5
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -30, 0, 5),   -- Y offset = 5 (higher up)
+        Position = UDim2.new(1, -95, 0, 5),   -- exact match
         Size = UDim2.fromOffset(55, 55),      -- small clickable area
         ClipsDescendants = false,             -- allow logo to overflow
         ZIndex = 600,
