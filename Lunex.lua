@@ -2461,8 +2461,8 @@ function Library:CreateMobileToggle(on_toggle)
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(150, 150),      -- bigger than host
+        BackgroundTransparency = 0.8,
+        Size = UDim2.fromOffset(135, 135),      -- bigger than host
         Position = UDim2.new(0.5, -25, 0.5, -25),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
