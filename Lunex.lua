@@ -135,7 +135,6 @@ local PRESET_THEMES = {
 
 local FONT      = Enum.Font.SourceSans
 local FONT_BOLD = Enum.Font.SourceSansBold
-local FONT_FACE = nil
 local FONT_SIZE = 13
 local STROKE_T  = 0.55
 
@@ -152,38 +151,6 @@ Library.UIExpansion   = false
 Library.ThemeRegistry  = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers   = {}
-
-do
-    function RegisterFont(Name, Weight, Style, Asset)
-        if not isfile(Asset.Id) then
-            writefile(Asset.Id, Asset.Font)
-        end
-        if isfile(Name .. ".font") then
-            delfile(Name .. ".font")
-        end
-        local Data = {
-            name = Name,
-            faces = {
-                {
-                    name = "Normal",
-                    weight = Weight,
-                    style = Style,
-                    assetId = getcustomasset(Asset.Id),
-                },
-            },
-        }
-        writefile(Name .. ".font", HttpService:JSONEncode(Data))
-        return getcustomasset(Name .. ".font")
-    end
-
-    local PixelFont = RegisterFont("MyPixelFont", 400, "Normal", {
-        Id = "pixel_font.ttf",
-        Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"),
-    })
-
-    Library.Font = Font.new(PixelFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-    FONT_FACE = Library.Font
-end
 
 function Library:RegisterTheme(inst, prop, key)
     if not inst then return end
@@ -232,11 +199,7 @@ local function new_instance(class, props, parent)
 end
 
 local function apply_font(label, bold)
-    if FONT_FACE then
-        label.FontFace = FONT_FACE
-    else
-        label.Font = bold and FONT_BOLD or FONT
-    end
+    label.Font = bold and FONT_BOLD or FONT
 end
 
 local function make_label(parent, text, color_key_or_color, props)
@@ -325,6 +288,7 @@ local function vertical_gradient(frame, top_key, bottom_key, trans_seq)
         local bot = type(bottom_key) == "string" and Library.Theme[bottom_key] or bottom_key
         grad.Color = ColorSequence.new(top, bot)
     end
+    update()
     Library:RegisterThemeCallback(update)
     return grad
 end
@@ -2466,13 +2430,29 @@ function Library:_UpdateWatermark()
     Library._WatermarkHost = host
 end
 
+-- ============================================================
+-- REPLACED MOBILE TOGGLE WITH LOGO IMAGE
+-- ============================================================
 function Library:CreateMobileToggle(on_toggle)
+    -- 1. Fetch the logo image from GitHub
+    local logo_asset = nil
+    local logo_url = "https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/refs/heads/main/BackgroundEraser_20260821_225640829.png"
+    local logo_file = "lunex_logo.png"
+
+    pcall(function()
+        if not isfile(logo_file) then
+            writefile(logo_file, game:HttpGet(logo_url))
+        end
+        logo_asset = getcustomasset(logo_file)
+    end)
+
+    -- 2. Create the Toggle UI
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel = 0,
         Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(42, 42),
+        Size = UDim2.fromOffset(42, 42), 
         ZIndex = 600,
     }, screen_gui)
     Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
@@ -2495,18 +2475,19 @@ function Library:CreateMobileToggle(on_toggle)
     }, host)
     Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
 
-    local btn = new_instance("TextButton", {
+    -- 3. Create the ImageButton (with the downloaded logo)
+    local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
-        Text = "UI",
-        TextColor3 = Library.Theme.Accent,
+        Image = logo_asset or "rbxassetid://1234567890", -- Fallback ID if download fails
         BackgroundTransparency = 1,
         Size = UDim2.fromScale(1, 1),
         ZIndex = 601,
         AutoButtonColor = false,
+        ScaleType = Enum.ScaleType.Fit,
+        -- ImageColor3 = Library.Theme.Accent, -- Uncomment if you want it tinted to theme color
     }, fill)
-    apply_font(btn, true)
-    Library:RegisterTheme(btn, "TextColor3", "Accent")
 
+    -- 4. Dragging and Clicking logic (unchanged)
     local dragging, start_pos, start_input = false, nil, nil
     local moved = false
     btn.InputBegan:Connect(function(input)
