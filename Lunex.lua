@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – EXACT POSITION: UDim2.new(1, -95, 0, 5)
+-- MOBILE TOGGLE – BIG LOGO (135x135), RIGHT CORNER, SMALL HITBOX
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,31 +2446,31 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – position exactly as specified: 1, -95, 0, 5
+    -- 2. Create the Toggle UI – host is small but transparent, positioned in top‑right corner
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -95, 0, 5),   -- exact match
+        Position = UDim2.new(1, -30, 0, 20),  -- right side, slightly upward
         Size = UDim2.fromOffset(55, 55),      -- small clickable area
         ClipsDescendants = false,             -- allow logo to overflow
         ZIndex = 600,
     }, screen_gui)
 
-    -- 3. ImageButton – big 135x135 logo, centered inside the host
+    -- 3. ImageButton – big 135x135 logo, centered inside the host, overflows
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
         Size = UDim2.fromOffset(135, 135),
-        Position = UDim2.new(0.5, -67.5, 0.5, -67.5),
+        Position = UDim2.new(1, -95, 0, 5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
         ScaleType = Enum.ScaleType.Fit,
     }, host)
 
-    -- 4. Dragging and Clicking logic
+    -- 4. Dragging and Clicking logic (unchanged)
     local dragging, start_pos, start_input = false, nil, nil
     local moved = false
     btn.InputBegan:Connect(function(input)
