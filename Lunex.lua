@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – BIG LOGO (135x135), RIGHT CORNER, SMALL HITBOX
+-- MOBILE TOGGLE – BIG LOGO (135x135), RIGHT CORNER, HIGHER UP
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,31 +2446,32 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – host is small but transparent, positioned in top‑right corner
+    -- 2. Create the Toggle UI – host is small but transparent, positioned top‑right
+    --    Reduced Y offset from 20 to 5 (moved higher)
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -30, 0, 20),  -- right side, slightly upward
+        Position = UDim2.new(1, -30, 0, 5),   -- Y offset = 5 (higher up)
         Size = UDim2.fromOffset(55, 55),      -- small clickable area
         ClipsDescendants = false,             -- allow logo to overflow
         ZIndex = 600,
     }, screen_gui)
 
-    -- 3. ImageButton – big 135x135 logo, centered inside the host, overflows
+    -- 3. ImageButton – big 135x135 logo, centered inside the host
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
         Size = UDim2.fromOffset(135, 135),
-        Position = UDim2.new(1, -95, 0, 4),
+        Position = UDim2.new(0.5, -67.5, 0.5, -67.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
         ScaleType = Enum.ScaleType.Fit,
     }, host)
 
-    -- 4. Dragging and Clicking logic (unchanged)
+    -- 4. Dragging and Clicking logic
     local dragging, start_pos, start_input = false, nil, nil
     local moved = false
     btn.InputBegan:Connect(function(input)
