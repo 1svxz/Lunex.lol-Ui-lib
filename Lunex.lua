@@ -2451,8 +2451,8 @@ function Library:CreateMobileToggle(on_toggle)
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -30, 0, 20),  -- right side, slightly upward
-        Size = UDim2.fromOffset(55, 55),      -- small clickable area
+        Position = UDim2.new(1, -95, 0, 3.5),  -- right side, slightly upward
+        Size = UDim2.fromOffset(40, 40),      -- small clickable area
         ClipsDescendants = false,             -- allow logo to overflow
         ZIndex = 600,
     }, screen_gui)
