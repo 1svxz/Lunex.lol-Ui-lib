@@ -153,43 +153,36 @@ Library.ThemeRegistry  = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers   = {}
 
--- Attempt custom font, fallback silently if it fails
 do
-    local success, err = pcall(function()
-        local function RegisterFont(Name, Weight, Style, Asset)
-            if not isfile(Asset.Id) then
-                writefile(Asset.Id, Asset.Font)
-            end
-            if isfile(Name .. ".font") then
-                delfile(Name .. ".font")
-            end
-            local Data = {
-                name = Name,
-                faces = {
-                    {
-                        name = "Normal",
-                        weight = Weight,
-                        style = Style,
-                        assetId = getcustomasset(Asset.Id),
-                    },
-                },
-            }
-            writefile(Name .. ".font", HttpService:JSONEncode(Data))
-            return getcustomasset(Name .. ".font")
+    function RegisterFont(Name, Weight, Style, Asset)
+        if not isfile(Asset.Id) then
+            writefile(Asset.Id, Asset.Font)
         end
-
-        local PixelFont = RegisterFont("MyPixelFont", 400, "Normal", {
-            Id = "pixel_font.ttf",
-            Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"),
-        })
-
-        Library.Font = Font.new(PixelFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-        FONT_FACE = Library.Font
-    end)
-    if not success then
-        warn("Custom font registration failed, using default fonts. Error:", err)
-        FONT_FACE = nil
+        if isfile(Name .. ".font") then
+            delfile(Name .. ".font")
+        end
+        local Data = {
+            name = Name,
+            faces = {
+                {
+                    name = "Normal",
+                    weight = Weight,
+                    style = Style,
+                    assetId = getcustomasset(Asset.Id),
+                },
+            },
+        }
+        writefile(Name .. ".font", HttpService:JSONEncode(Data))
+        return getcustomasset(Name .. ".font")
     end
+
+    local PixelFont = RegisterFont("MyPixelFont", 400, "Normal", {
+        Id = "pixel_font.ttf",
+        Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/fs-tahoma-8px.ttf"),
+    })
+
+    Library.Font = Font.new(PixelFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    FONT_FACE = Library.Font
 end
 
 function Library:RegisterTheme(inst, prop, key)
@@ -332,8 +325,6 @@ local function vertical_gradient(frame, top_key, bottom_key, trans_seq)
         local bot = type(bottom_key) == "string" and Library.Theme[bottom_key] or bottom_key
         grad.Color = ColorSequence.new(top, bot)
     end
-    -- Apply immediately and register for updates
-    update()
     Library:RegisterThemeCallback(update)
     return grad
 end
@@ -777,9 +768,6 @@ function Library:Window(options)
         ZIndex = 6,
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
-    -- Force normal font for title (not pixel)
-    title_label.FontFace = nil
-    title_label.Font = FONT_BOLD
 
     Library:RegisterThemeCallback(function()
         local accent_hex = string.format("#%02X%02X%02X",
