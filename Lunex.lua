@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – BIG LOGO, SMALLER INVISIBLE BACKGROUND
+-- MOBILE TOGGLE – CENTERED ON RIGHT SIDE FOR MOBILE
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,31 +2446,32 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – smaller invisible host, no clipping
+    -- 2. Create the Toggle UI – anchored to right-middle, centered vertically
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(44, 44),      -- smaller click area
-        ClipsDescendants = false,             -- allow image to overflow
+        AnchorPoint = Vector2.new(1, 0.5),           -- anchor at right-middle
+        Position = UDim2.new(1, -95, 0.5, 0),       -- right edge with 95px margin, vertical center
+        Size = UDim2.fromOffset(55, 55),            -- small clickable area
+        ClipsDescendants = false,                   -- allow logo to overflow
         ZIndex = 600,
     }, screen_gui)
 
-    -- 3. ImageButton – bigger than the host, centered
+    -- 3. ImageButton – big 135x135 logo, centered inside the host
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(70, 70),      -- bigger than host
-        Position = UDim2.new(0.5, -35, 0.5, -35),
+        Size = UDim2.fromOffset(135, 135),
+        Position = UDim2.new(0.5, -67.5, 0.5, -67.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
         ScaleType = Enum.ScaleType.Fit,
     }, host)
 
-    -- 4. Dragging and Clicking logic (unchanged)
+    -- 4. Dragging and Clicking logic
     local dragging, start_pos, start_input = false, nil, nil
     local moved = false
     btn.InputBegan:Connect(function(input)
