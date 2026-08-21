@@ -2431,7 +2431,7 @@ function Library:_UpdateWatermark()
 end
 
 -- ============================================================
--- MOBILE TOGGLE – BIG LOGO, SMALLER INVISIBLE BACKGROUND
+-- MOBILE TOGGLE – BIG LOGO (135x135), RIGHT CORNER, SMALL HITBOX
 -- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     -- 1. Fetch the logo image from GitHub
@@ -2446,24 +2446,24 @@ function Library:CreateMobileToggle(on_toggle)
         logo_asset = getcustomasset(logo_file)
     end)
 
-    -- 2. Create the Toggle UI – smaller invisible host, no clipping
+    -- 2. Create the Toggle UI – host is small but transparent, positioned in top‑right corner
     local host = new_instance("Frame", {
         Name = "MobileToggle",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        Position = UDim2.new(0, 15, 0.4, 0),
-        Size = UDim2.fromOffset(44, 44),      -- smaller click area
-        ClipsDescendants = false,             -- allow image to overflow
+        Position = UDim2.new(1, -30, 0, 20),  -- right side, slightly upward
+        Size = UDim2.fromOffset(55, 55),      -- small clickable area
+        ClipsDescendants = false,             -- allow logo to overflow
         ZIndex = 600,
     }, screen_gui)
 
-    -- 3. ImageButton – bigger than the host, centered
+    -- 3. ImageButton – big 135x135 logo, centered inside the host, overflows
     local btn = new_instance("ImageButton", {
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
-        BackgroundTransparency = 0.8,
-        Size = UDim2.fromOffset(135, 135),      -- bigger than host
-        Position = UDim2.new(0.5, -25, 0.5, -25),
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(135, 135),
+        Position = UDim2.new(0.5, -67.5, 0.5, -67.5),  -- center
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
