@@ -2462,8 +2462,8 @@ function Library:CreateMobileToggle(on_toggle)
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(70, 70),      -- bigger than host
-        Position = UDim2.new(0.5, -35, 0.5, -35),
+        Size = UDim2.fromOffset(90, 90),      -- bigger than host
+        Position = UDim2.new(0.5, -45, 0.5, -45),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
