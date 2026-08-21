@@ -1,5 +1,6 @@
 -- ============================================================
--- LUNEX UI LIBRARY V2 – Full version with redesigned header
+-- LUNEX UI LIBRARY V2 – Full version with SubSection, Dock,
+-- Watermark, KeybindList, and mobile support.
 -- ============================================================
 
 local UserInputService = game:GetService("UserInputService")
@@ -11,6 +12,7 @@ local Players         = game:GetService("Players")
 local LocalPlayer     = Players.LocalPlayer
 local Workspace       = game:GetService("Workspace")
 local Camera          = Workspace.CurrentCamera
+local Stats           = game:GetService("Stats")
 
 local CONFIG_FOLDER   = "Lunex.lol"
 local CONFIGS_PATH    = CONFIG_FOLDER .. "/Configs"
@@ -48,7 +50,7 @@ local function get_gui_parent()
 end
 
 -- -----------------------------------------------------------------
--- Preset themes
+-- Preset themes (extended)
 -- -----------------------------------------------------------------
 local PRESET_THEMES = {
     Default = {
@@ -73,6 +75,8 @@ local PRESET_THEMES = {
         TabBottom     = Color3.fromRGB(0, 0, 0),
         TabInactive   = Color3.fromRGB(128, 128, 128),
         TabHover      = Color3.fromRGB(208, 208, 208),
+        Background    = Color3.fromRGB(22, 25, 32),
+        Deselected    = Color3.fromRGB(145, 152, 165),
     },
     ["Tokyo Night"] = {
         Accent        = Color3.fromRGB(187, 154, 247),
@@ -96,6 +100,8 @@ local PRESET_THEMES = {
         TabBottom     = Color3.fromRGB(22,  22,  30),
         TabInactive   = Color3.fromRGB(100, 110, 150),
         TabHover      = Color3.fromRGB(160, 175, 220),
+        Background    = Color3.fromRGB(26, 27, 38),
+        Deselected    = Color3.fromRGB(122, 134, 179),
     },
     Crimson = {
         Accent        = Color3.fromRGB(255, 75,  75),
@@ -119,6 +125,8 @@ local PRESET_THEMES = {
         TabBottom     = Color3.fromRGB(20,  12,  12),
         TabInactive   = Color3.fromRGB(130, 90,  90),
         TabHover      = Color3.fromRGB(200, 130, 130),
+        Background    = Color3.fromRGB(30, 18, 22),
+        Deselected    = Color3.fromRGB(180, 145, 152),
     },
     Emerald = {
         Accent        = Color3.fromRGB(80,  250, 123),
@@ -142,14 +150,10 @@ local PRESET_THEMES = {
         TabBottom     = Color3.fromRGB(12,  20,  14),
         TabInactive   = Color3.fromRGB(90,  130, 100),
         TabHover      = Color3.fromRGB(130, 200, 150),
-    }
+        Background    = Color3.fromRGB(18, 28, 22),
+        Deselected    = Color3.fromRGB(145, 175, 155),
+    },
 }
-
-local FONT      = Enum.Font.SourceSans
-local FONT_BOLD = Enum.Font.SourceSansBold
-local FONT_FACE = nil
-local FONT_SIZE = 13
-local STROKE_T  = 0.55
 
 -- -----------------------------------------------------------------
 -- Library main table
@@ -164,15 +168,18 @@ Library.Controls      = {}
 Library.Defaults      = {}
 Library.UIExpansion   = false
 Library.ChangeLogs    = {
-    "v2.0 – Added ESP preview, MultiDropdown, TabGroup, Resize toggle",
-    "v2.0 – Added Divider, Tab visibility toggles",
-    "v2.0 – Mobile support enhanced",
-    "v2.1 – Redesigned header with tabs in top bar"
+    "v2.2 – Added SubSection, Dock, Watermark, KeybindList",
+    "v2.1 – Redesigned header with tabs in top bar",
+    "v2.0 – Added ESP preview, MultiDropdown, TabGroup, Resize toggle"
 }
 
 Library.ThemeRegistry  = {}
 Library.ThemeCallbacks = {}
 Library.ThemePickers   = {}
+Library.Extras         = nil
+Library.Holder         = nil
+Library.Connections    = {}
+Library.InputFocused   = false
 
 -- -----------------------------------------------------------------
 -- Theme registry / callbacks
@@ -215,11 +222,17 @@ end
 -- -----------------------------------------------------------------
 -- Utility: instance creation, font, outlined text, frames
 -- -----------------------------------------------------------------
+local FONT      = Enum.Font.SourceSans
+local FONT_BOLD = Enum.Font.SourceSansBold
+local FONT_FACE = nil
+local FONT_SIZE = 13
+local STROKE_T  = 0.55
+
 local function new_instance(class, props, parent)
     local obj = Instance.new(class)
     if props then
         for k, v in pairs(props) do
-            if k ~= "Parent" then obj[k] = v end
+            if k ~= "Parent" then obj[k] = v
         end
     end
     if parent then obj.Parent = parent end
@@ -259,7 +272,7 @@ local function make_label(parent, text, color_key_or_color, props)
 
     if props then
         for k, v in pairs(props) do
-            if k ~= "Bold" then label[k] = v end
+            if k ~= "Bold" then label[k] = v
         end
     end
     return label
@@ -279,7 +292,7 @@ local function framed_box(parent, outer_key, inner_key, fill_key, props)
         Library:RegisterTheme(outer, "BackgroundColor3", outer_key)
     end
     if props then
-        for k, v in pairs(props) do outer[k] = v end
+        for k, v in pairs(props) do outer[k] = v
     end
 
     local inner = new_instance("Frame", {
@@ -328,25 +341,27 @@ local function tween(obj, duration, goal)
     return TweenService:Create(obj, TweenInfo.new(duration or 0.12, Enum.EasingStyle.Quad), goal)
 end
 
--- -----------------------------------------------------------------
--- Key name mapping
--- -----------------------------------------------------------------
+-- Key mapping
 local KEY_NAMES = {
     [Enum.UserInputType.MouseButton1] = "LM",
     [Enum.UserInputType.MouseButton2] = "RM",
     [Enum.UserInputType.MouseButton3] = "MM",
-    [Enum.KeyCode.LeftShift]  = "Shift", [Enum.KeyCode.RightShift]  = "Shift",
-    [Enum.KeyCode.LeftControl]= "Ctrl",  [Enum.KeyCode.RightControl]= "Ctrl",
-    [Enum.KeyCode.LeftAlt]    = "Alt",   [Enum.KeyCode.RightAlt]    = "Alt",
-    [Enum.KeyCode.Space]      = "Space", [Enum.KeyCode.Return]      = "Enter",
-    [Enum.KeyCode.Tab]        = "Tab",   [Enum.KeyCode.Backspace]   = "Back",
-    [Enum.KeyCode.CapsLock]   = "Caps",  [Enum.KeyCode.Escape]      = "Esc",
-    [Enum.KeyCode.Insert]     = "Insert",[Enum.KeyCode.Delete]      = "Del",
-    [Enum.KeyCode.Up]="Up", [Enum.KeyCode.Down]="Down",
-    [Enum.KeyCode.Left]="Left", [Enum.KeyCode.Right]="Right",
+    [Enum.KeyCode.LeftShift]  = "LS", [Enum.KeyCode.RightShift]  = "RS",
+    [Enum.KeyCode.LeftControl]= "LCTL",  [Enum.KeyCode.RightControl]= "RCTL",
+    [Enum.KeyCode.LeftAlt]    = "LALT",   [Enum.KeyCode.RightAlt]    = "RALT",
+    [Enum.KeyCode.Space]      = "SPC", [Enum.KeyCode.Return]      = "RETU",
+    [Enum.KeyCode.Tab]        = "TAB",   [Enum.KeyCode.Backspace]   = "BS",
+    [Enum.KeyCode.CapsLock]   = "CAPS",  [Enum.KeyCode.Escape]      = "ESC",
+    [Enum.KeyCode.Insert]     = "INS",[Enum.KeyCode.Delete]      = "DEL",
+    [Enum.KeyCode.Up]="UP", [Enum.KeyCode.Down]="DOWN",
+    [Enum.KeyCode.Left]="LEFT", [Enum.KeyCode.Right]="RIGHT",
+    [Enum.KeyCode.One]="1", [Enum.KeyCode.Two]="2", [Enum.KeyCode.Three]="3",
+    [Enum.KeyCode.Four]="4", [Enum.KeyCode.Five]="5", [Enum.KeyCode.Six]="6",
+    [Enum.KeyCode.Seven]="7", [Enum.KeyCode.Eight]="8", [Enum.KeyCode.Nine]="9",
+    [Enum.KeyCode.Zero]="0", [Enum.KeyCode.Minus]="-", [Enum.KeyCode.Equals]="=",
 }
 local function key_text(key)
-    if key == nil then return "-" end
+    if key == nil then return "NONE" end
     if KEY_NAMES[key] then return KEY_NAMES[key] end
     if typeof(key) == "EnumItem" and key.EnumType == Enum.KeyCode then
         return key.Name
@@ -386,12 +401,8 @@ local MIN_SIZE = Vector2.new(360, 360)
 local MAX_SIZE = Vector2.new(800, 800)
 
 -- -----------------------------------------------------------------
--- Tab positioning helpers (simplified for header tabs)
+-- Helper: is_click / is_move
 -- -----------------------------------------------------------------
-local function update_tab_positions(window)
-    -- tabs are inside header, positions handled by UIListLayout
-end
-
 local function is_click(input)
     return input.UserInputType == Enum.UserInputType.MouseButton1 or
            input.UserInputType == Enum.UserInputType.Touch
@@ -403,7 +414,7 @@ local function is_move(input)
 end
 
 -- -----------------------------------------------------------------
--- Serialization helpers for config/theme
+-- Serialization / Config / Theme functions
 -- -----------------------------------------------------------------
 local function serialize(val)
     if typeof(val) == "Color3" then
@@ -428,9 +439,6 @@ local function deserialize(val)
     return val
 end
 
--- -----------------------------------------------------------------
--- Folder scanning (no index files)
--- -----------------------------------------------------------------
 local function scan_config_files()
     local files = {}
     if not isfolder or not listfiles then return files end
@@ -463,9 +471,6 @@ local function scan_theme_files()
     return files
 end
 
--- -----------------------------------------------------------------
--- Config methods
--- -----------------------------------------------------------------
 function Library:SaveConfig(filename)
     if not writefile then return end
     ensure_folders()
@@ -547,9 +552,6 @@ function Library:ResetToDefaults()
     end
 end
 
--- -----------------------------------------------------------------
--- Theme methods
--- -----------------------------------------------------------------
 function Library:SaveTheme(theme_name)
     if not writefile then return end
     ensure_folders()
@@ -683,7 +685,7 @@ local function add_resize_handles(canvas, on_resize, window_ref)
 end
 
 -- -----------------------------------------------------------------
--- Window constructor (with redesigned header)
+-- Window constructor (redesigned header)
 -- -----------------------------------------------------------------
 function Library:Window(options)
     options = options or {}
@@ -726,9 +728,7 @@ function Library:Window(options)
     }, w_outer)
     Library:RegisterTheme(w_fill, "BackgroundColor3", "PanelFill")
 
-    -- ============================================================
-    -- REDESIGNED HEADER (top bar with tabs)
-    -- ============================================================
+    -- Header
     local HEADER_HEIGHT = 40
     local header_outer = new_instance("Frame", {
         Name = "HeaderOuter",
@@ -759,46 +759,37 @@ function Library:Window(options)
     Library:RegisterTheme(header_fill, "BackgroundColor3", "PanelFill")
     vertical_gradient(header_fill, "HeaderTop", "HeaderBottom")
 
-    -- Container for tabs and brand label
     local header_layout = new_instance("Frame", {
-        Name = "HeaderLayout",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(6, 2),
         Size = UDim2.new(1, -12, 1, -4),
         ZIndex = 3,
     }, header_outer)
 
-    -- Tabs container (left)
     local tabs_container = new_instance("Frame", {
-        Name = "TabsContainer",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.new(1, -80, 1, 0),
         ZIndex = 3,
     }, header_layout)
-    local tabs_list = new_instance("UIListLayout", {
+    new_instance("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         VerticalAlignment = Enum.VerticalAlignment.Center,
         Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, tabs_container)
 
-    -- Brand label (right)
     local brand = make_label(header_layout, "lunex.lol", "Accent", {
         Position = UDim2.new(1, -70, 0, 0),
         Size = UDim2.fromOffset(70, HEADER_HEIGHT),
         TextXAlignment = Enum.TextXAlignment.Right,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        ZIndex = 4,
         Bold = true,
         TextSize = 12,
+        ZIndex = 4,
     })
 
-    -- ============================================================
-    -- Content area (below header)
-    -- ============================================================
+    -- Content area
     local panel = new_instance("Frame", {
-        Name = "Panel",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(10, HEADER_HEIGHT + 6),
         Size = UDim2.new(1, -20, 1, -(HEADER_HEIGHT + 16)),
@@ -814,7 +805,7 @@ function Library:Window(options)
     }, panel)
     Library:RegisterTheme(panel_fill, "BackgroundColor3", "ContentFill")
 
-    -- borders for panel (same as before)
+    -- borders
     local left_border  = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
     local right_border = new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.new(1, -1, 0, 0), Size = UDim2.fromOffset(1, 1), ZIndex = 2}, panel)
     local bottom_border= new_instance("Frame", {BackgroundColor3 = Library.Theme.ContentOuter, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 1, 1, -1), Size = UDim2.new(1, 0, 0, 1), ZIndex = 2}, panel)
@@ -846,9 +837,7 @@ function Library:Window(options)
         ClipsDescendants = true,
     }, panel)
 
-    -- Drag zone: entire header area
     local drag_zone = new_instance("TextButton", {
-        Name = "DragZone",
         BackgroundTransparency = 1,
         Text = "",
         Position = UDim2.fromOffset(0, 0),
@@ -890,7 +879,6 @@ function Library:Window(options)
         ActiveTab= nil,
         _header_outer = header_outer,
         _tabs_container = tabs_container,
-        _tabs_list = tabs_list,
         _tabs_config = tabs_config,
         _tab_objects = {},
     }, {__index = Library._WindowMethods})
@@ -898,15 +886,12 @@ function Library:Window(options)
     function window:GetMinWidth()
         local num = #self.Tabs
         if num == 0 then return MIN_SIZE.X end
-        local total_tabs = num * 60 + (num - 1) * 6
-        return math.max(MIN_SIZE.X, total_tabs + 140)
+        return math.max(MIN_SIZE.X, num * 60 + (num - 1) * 6 + 140)
     end
 
     add_resize_handles(canvas, function() end, window)
 
-    -- -----------------------------------------------------------------
-    -- Create default tabs based on config
-    -- -----------------------------------------------------------------
+    -- Create default tabs
     local main_tab, esp_tab, info_tab
 
     if tabs_config.main ~= false then
@@ -986,7 +971,7 @@ function Library:Window(options)
 end
 
 -- -----------------------------------------------------------------
--- Window methods (Tab creation)
+-- Window methods (Tab)
 -- -----------------------------------------------------------------
 Library._WindowMethods = {}
 
@@ -1133,7 +1118,7 @@ function Library._WindowMethods:Tab(name)
 end
 
 -- -----------------------------------------------------------------
--- Tab methods (Group)
+-- Tab methods (Group, SubSection)
 -- -----------------------------------------------------------------
 Library._TabMethods = {}
 
@@ -1250,6 +1235,135 @@ function Library._TabMethods:Group(title, side)
     return group
 end
 
+-- SubSection (tabbed group inside a section)
+function Library._TabMethods:SubSection(params)
+    local parentGroup = self
+    local Cfg = {
+        Names = params.Names or params.names or { "Tab1", "Tab2" },
+        Count = params.Count or params.count or 2,
+        Sections = {},
+        Items = {},
+    }
+
+    local container = new_instance("Frame", {
+        Parent = parentGroup.Content,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        LayoutOrder = parentGroup._order + 1,
+        ZIndex = 3,
+    }, parentGroup.Content)
+    parentGroup._order = parentGroup._order + 1
+
+    local header = new_instance("Frame", {
+        Parent = container,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 22),
+        ZIndex = 3,
+    })
+    new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        Padding = UDim.new(0, 2),
+        VerticalAlignment = Enum.VerticalAlignment.Bottom,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, header)
+
+    local pages = new_instance("Frame", {
+        Parent = container,
+        BackgroundTransparency = 0,
+        Size = UDim2.new(1, 0, 0, 140),
+        BackgroundColor3 = Library.Theme.Background,
+        ZIndex = 3,
+    })
+    Library:RegisterTheme(pages, "BackgroundColor3", "Background")
+    local outline = new_instance("UIStroke", { Color = Library.Theme.OuterBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, pages)
+    Library:RegisterTheme(outline, "Color", "OuterBorder")
+    local inline = new_instance("UIStroke", { Color = Library.Theme.InnerBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, BorderStrokePosition = Enum.BorderStrokePosition.Inner }, pages)
+    Library:RegisterTheme(inline, "Color", "InnerBorder")
+
+    local tabButtons = {}
+    local tabPages = {}
+    for i = 1, Cfg.Count do
+        local name = Cfg.Names[i] or "Tab" .. i
+        local btn = new_instance("TextButton", {
+            Parent = header,
+            Text = "",
+            AutoButtonColor = false,
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(0, 18),
+            AutomaticSize = Enum.AutomaticSize.X,
+            ZIndex = 4,
+        })
+        local label = make_label(btn, name, "TabInactive", {
+            Size = UDim2.new(1, -8, 1, 0),
+            TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 5,
+        })
+        btn.Size = UDim2.fromOffset(label.TextBounds.X + 8, 18)
+        tabButtons[i] = {btn = btn, label = label}
+
+        local page = new_instance("Frame", {
+            Parent = pages,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -8, 1, -8),
+            Position = UDim2.fromOffset(4, 4),
+            Visible = (i == 1),
+            ZIndex = 3,
+            ClipsDescendants = false,
+        })
+        new_instance("UIListLayout", {
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        }, page)
+        tabPages[i] = page
+
+        btn.MouseButton1Click:Connect(function()
+            for j, tb in ipairs(tabButtons) do
+                local active = (j == i)
+                tb.label.TextColor3 = active and Library.Theme.Accent or Library.Theme.TabInactive
+                tabPages[j].Visible = active
+            end
+        end)
+        btn.MouseEnter:Connect(function()
+            if i ~= Cfg.ActiveIndex then
+                tween(label, 0.12, { TextColor3 = Library.Theme.TabHover }):Play()
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if i ~= Cfg.ActiveIndex then
+                tween(label, 0.12, { TextColor3 = Library.Theme.TabInactive }):Play()
+            end
+        end)
+    end
+
+    Cfg.ActiveIndex = 1
+    tabButtons[1].label.TextColor3 = Library.Theme.Accent
+
+    local subSection = {}
+    function subSection:Tab(index)
+        if index < 1 or index > Cfg.Count then error("Invalid tab index") end
+        local page = tabPages[index]
+        local group = setmetatable({
+            Content = page,
+            _order = 0,
+            _update_size = function() end,
+        }, {__index = Library._GroupMethods})
+        function group:next_row(height)
+            self._order = self._order + 1
+            local row = new_instance("Frame", {
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 0, height),
+                LayoutOrder = self._order,
+                ZIndex = 3,
+            }, self.Content)
+            return row
+        end
+        return group
+    end
+    return subSection
+end
+
 -- -----------------------------------------------------------------
 -- Group methods (controls)
 -- -----------------------------------------------------------------
@@ -1269,6 +1383,7 @@ local function next_row(group, height)
     return row
 end
 
+-- Checkbox
 function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     extra = extra or {}
     local state = default and true or false
@@ -1349,95 +1464,7 @@ function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     return ctrl
 end
 
-function Library._GroupMethods:_swatch(row, cfg, position, flag)
-    local color = cfg.default or Library.Theme.Accent
-    local btn = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(12, 12),
-        Position = position,
-        ZIndex = 4,
-    }, row)
-    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", color, { ZIndex = 4 })
-
-    local function set(value, fire_callback)
-        color = value
-        fill.BackgroundColor3 = value
-        if flag then Library.Flags[flag] = value end
-        if fire_callback ~= false and cfg.callback then
-            task.spawn(cfg.callback, value)
-        end
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        close_all_popups()
-        local abs = btn.AbsolutePosition
-        Library._ColorPicker(popup_layer, abs + Vector2.new(0, 14), color, function(c)
-            set(c, true)
-        end)
-    end)
-
-    local ctrl = {
-        Set = function(_, v, f) set(v, f) end,
-        Get = function() return color end,
-    }
-    if flag then
-        Library.Flags[flag] = color
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = color
-    end
-    return btn
-end
-
-function Library._GroupMethods:ColorPicker(text, default, callback, flag)
-    local color = default or Library.Theme.Accent
-    local row = next_row(self, 14)
-    make_label(row, text, "TextInactive", {
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, -20, 1, 0),
-        ZIndex = 3,
-    })
-
-    local btn = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.new(1, -12, 0, 1),
-        ZIndex = 4,
-    }, row)
-    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", color, { ZIndex = 4 })
-
-    local function set(value, fire_callback)
-        color = value
-        fill.BackgroundColor3 = value
-        if flag then Library.Flags[flag] = value end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, value)
-        end
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        close_all_popups()
-        local abs = btn.AbsolutePosition
-        Library._ColorPicker(popup_layer, abs + Vector2.new(0, 14), color, function(c)
-            set(c, true)
-        end)
-    end)
-
-    local ctrl = {
-        Set = function(_, v, f) set(v, f) end,
-        Get = function() return color end,
-    }
-    if flag then
-        Library.Flags[flag] = color
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = color
-    end
-    return ctrl
-end
-
+-- Slider
 function Library._GroupMethods:Slider(text, options, callback, flag)
     options = options or {}
     local minv = options.min or 0
@@ -1549,9 +1576,20 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
     return ctrl
 end
 
-function Library._GroupMethods:Keybind(text, default, callback, flag)
+-- Keybind
+function Library._GroupMethods:Keybind(params)
+    local Cfg = {
+        Name = params.Name or "keybind",
+        Flag = params.Flag or Library:MakeFlag(self, 'keybind'),
+        Callback = params.Callback or function() end,
+        Key = params.Key or Enum.KeyCode.Unknown,
+        Mode = params.Mode or "Hold",
+        Active = false,
+        Listening = false,
+        Items = {},
+    }
     local row = next_row(self, 14)
-    make_label(row, text, "TextInactive", {
+    make_label(row, Cfg.Name, "TextInactive", {
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.new(1, -38, 1, 0),
         ZIndex = 3,
@@ -1567,32 +1605,30 @@ function Library._GroupMethods:Keybind(text, default, callback, flag)
         ZIndex = 4,
     }, row)
     local _, b_fill = framed_box(box, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 4 })
-    local label = make_label(b_fill, key_text(default), "TextInactive", {
+    local label = make_label(b_fill, key_text(Cfg.Key), "TextInactive", {
         Size = UDim2.fromScale(1, 1),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 5,
         TextSize = 11,
     })
 
-    local listening = false
-    local key = default
-
     local function set(k, fire_callback)
-        key = k
+        Cfg.Key = k
         label.Text = key_text(k)
-        if flag then Library.Flags[flag] = k end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, k)
+        if Cfg.Flag then Library.Flags[Cfg.Flag] = k end
+        if fire_callback ~= false and Cfg.Callback then
+            task.spawn(Cfg.Callback, k)
         end
     end
 
     box.MouseButton1Click:Connect(function()
-        listening = true
+        if Cfg.Listening then return end
+        Cfg.Listening = true
         label.Text = "..."
         label.TextColor3 = Library.Theme.Accent
         local conn
         conn = UserInputService.InputBegan:Connect(function(input, game_processed)
-            if not listening then return end
+            if not Cfg.Listening then return end
             local k
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 if input.KeyCode == Enum.KeyCode.Escape then
@@ -1608,154 +1644,53 @@ function Library._GroupMethods:Keybind(text, default, callback, flag)
             else
                 return
             end
-            listening = false
+            Cfg.Listening = false
             conn:Disconnect()
             set(k, true)
             label.TextColor3 = Library.Theme.TextInactive
         end)
     end)
 
-    local ctrl = {
-        Set = function(_, k, f) set(k, f) end,
-        Get = function() return key end,
+    -- Toggle logic
+    local function toggle(state)
+        Cfg.Active = state
+        Cfg.Callback(state)
+    end
+
+    UserInputService.InputBegan:Connect(function(input, game_processed)
+        if game_processed then return end
+        if input.KeyCode == Cfg.Key then
+            if Cfg.Mode == "Hold" then toggle(true)
+            elseif Cfg.Mode == "Toggle" then toggle(not Cfg.Active)
+            end
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input, game_processed)
+        if game_processed then return end
+        if input.KeyCode == Cfg.Key and Cfg.Mode == "Hold" then toggle(false) end
+    end)
+
+    set(Cfg.Key, false)
+    Library.Elements[Cfg.Flag] = Cfg
+    return Cfg
+end
+
+-- Dropdown (single select)
+function Library._GroupMethods:Dropdown(params)
+    local Cfg = {
+        Name = params.Name or "dropdown",
+        Flag = params.Flag or Library:MakeFlag(self, 'dropdown'),
+        Options = params.Options or {},
+        Default = params.Default,
+        Callback = params.Callback or function() end,
+        MultiSelect = false,
+        Value = nil,
+        Open = false,
+        Items = {},
+        OptionInstances = {},
     }
-    if flag then
-        Library.Flags[flag] = key
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = key
-    end
-    return ctrl
-end
-
-local function plus_icon(parent, color_key)
-    local host = new_instance("Frame", {
-        Name = "Icon",
-        BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -5, 0.5, 0),
-        Size = UDim2.fromOffset(7, 7),
-        ZIndex = 4,
-    }, parent)
-    local color = type(color_key) == "string" and Library.Theme[color_key] or color_key
-    local hbar = new_instance("Frame", {
-        BackgroundColor3 = color,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 3),
-        Size = UDim2.fromOffset(7, 1),
-        ZIndex = 4,
-    }, host)
-    local vbar = new_instance("Frame", {
-        BackgroundColor3 = color,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(3, 0),
-        Size = UDim2.fromOffset(1, 7),
-        ZIndex = 4,
-    }, host)
-    if type(color_key) == "string" then
-        Library:RegisterTheme(hbar, "BackgroundColor3", color_key)
-        Library:RegisterTheme(vbar, "BackgroundColor3", color_key)
-    end
-    return {
-        SetOpen = function(open) vbar.Visible = not open end,
-        IsOpen = function() return not vbar.Visible end,
-    }
-end
-
-local function build_combo_popup(box, items, multi, get_state, on_pick)
-    close_all_popups()
-    local ITEM_H = 16
-    local target_h = #items * ITEM_H + 4
-
-    local box_abs = box.AbsolutePosition
-    local box_sz = box.AbsoluteSize
-
-    local blocker = new_instance("TextButton", {
-        Name = "Blocker",
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 501,
-    }, screen_gui)
-    blocker.MouseButton1Click:Connect(close_all_popups)
-
-    local pop = new_instance("Frame", {
-        Name = "DropdownPopup",
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 4),
-        Size = UDim2.fromOffset(box_sz.X, target_h),
-        ClipsDescendants = true,
-        ZIndex = 502,
-    }, screen_gui)
-
-    local _, pfill = framed_box(pop, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 502 })
-    pfill.Size = UDim2.new(1, -2, 1, -2)
-
-    local mask = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
-        ClipsDescendants = true,
-        ZIndex = 503,
-    }, pfill)
-
-    local container = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, -target_h),
-        Size = UDim2.new(1, 0, 0, target_h),
-        ZIndex = 503,
-    }, mask)
-
-    for i, it in ipairs(items) do
-        local ib = new_instance("TextButton", {
-            Text = "",
-            AutoButtonColor = false,
-            BackgroundTransparency = 1,
-            Position = UDim2.fromOffset(0, (i - 1) * ITEM_H),
-            Size = UDim2.new(1, 0, 0, ITEM_H),
-            ClipsDescendants = true,
-            ZIndex = 504,
-        }, container)
-        local selected = get_state(i)
-        local il = make_label(ib, (selected and "> " or "") .. it, selected and "ComboSelected" or "TextInactive", {
-            Position = UDim2.fromOffset(5, 0),
-            Size = UDim2.new(1, -7, 1, 0),
-            ZIndex = 505,
-        })
-        ib.MouseEnter:Connect(function()
-            if not get_state(i) then
-                tween(il, 0.1, { TextColor3 = Library.Theme.TextActive }):Play()
-            end
-        end)
-        ib.MouseLeave:Connect(function()
-            if not get_state(i) then
-                tween(il, 0.1, { TextColor3 = Library.Theme.TextInactive }):Play()
-            end
-        end)
-        ib.MouseButton1Click:Connect(function()
-            on_pick(i)
-            if multi then
-                local s = get_state(i)
-                il.Text = (s and "> " or "") .. it
-                il.TextColor3 = s and Library.Theme.ComboSelected or Library.Theme.TextInactive
-            else
-                close_all_popups()
-            end
-        end)
-    end
-
-    tween(container, 0.15, { Position = UDim2.fromOffset(0, 0) }):Play()
-
-    open_popups[#open_popups + 1] = function()
-        blocker:Destroy()
-        pop:Destroy()
-    end
-    return pop
-end
-
-function Library._GroupMethods:Combo(text, items, default, callback, flag)
-    local index = default or 1
     local row = next_row(self, 34)
-    make_label(row, text, "TextInactive", {
+    make_label(row, Cfg.Name, "TextInactive", {
         Position = UDim2.fromOffset(1, 0),
         Size = UDim2.fromOffset(120, 13),
         TextYAlignment = Enum.TextYAlignment.Top,
@@ -1772,248 +1707,121 @@ function Library._GroupMethods:Combo(text, items, default, callback, flag)
         ZIndex = 3,
     }, row)
     local _, b_fill = framed_box(box, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
-    local preview = make_label(box, items[index] or "", "TextInactive", {
+    local preview = make_label(box, Cfg.Default or "", "TextInactive", {
         Position = UDim2.fromOffset(5, 1),
         Size = UDim2.new(1, -20, 1, -2),
         TextSize = 12,
         ZIndex = 4,
     })
+
+    local function plus_icon(parent, color_key)
+        local host = new_instance("Frame", {
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -5, 0.5, 0),
+            Size = UDim2.fromOffset(7, 7),
+            ZIndex = 4,
+        }, parent)
+        local color = type(color_key) == "string" and Library.Theme[color_key] or color_key
+        local hbar = new_instance("Frame", { BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 3), Size = UDim2.fromOffset(7, 1), ZIndex = 4 }, host)
+        local vbar = new_instance("Frame", { BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(3, 0), Size = UDim2.fromOffset(1, 7), ZIndex = 4 }, host)
+        if type(color_key) == "string" then
+            Library:RegisterTheme(hbar, "BackgroundColor3", color_key)
+            Library:RegisterTheme(vbar, "BackgroundColor3", color_key)
+        end
+        return { SetOpen = function(open) vbar.Visible = not open end, IsOpen = function() return not vbar.Visible end }
+    end
     local icon = plus_icon(box, "Accent")
+
+    local function build_combo_popup(box, items, multi, get_state, on_pick)
+        close_all_popups()
+        local ITEM_H = 16
+        local target_h = #items * ITEM_H + 4
+        local box_abs = box.AbsolutePosition
+        local box_sz = box.AbsoluteSize
+
+        local blocker = new_instance("TextButton", {
+            BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
+            Size = UDim2.fromScale(1, 1), ZIndex = 501,
+        }, screen_gui)
+        blocker.MouseButton1Click:Connect(close_all_popups)
+
+        local pop = new_instance("Frame", {
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(box_abs.X, box_abs.Y + box_sz.Y + 4),
+            Size = UDim2.fromOffset(box_sz.X, target_h),
+            ClipsDescendants = true, ZIndex = 502,
+        }, screen_gui)
+        local _, pfill = framed_box(pop, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 502 })
+        pfill.Size = UDim2.new(1, -2, 1, -2)
+        local mask = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ClipsDescendants = true, ZIndex = 503 }, pfill)
+        local container = new_instance("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, -target_h), Size = UDim2.new(1, 0, 0, target_h), ZIndex = 503 }, mask)
+
+        for i, it in ipairs(items) do
+            local ib = new_instance("TextButton", {
+                Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(0, (i - 1) * ITEM_H),
+                Size = UDim2.new(1, 0, 0, ITEM_H),
+                ClipsDescendants = true, ZIndex = 504,
+            }, container)
+            local selected = get_state(i)
+            local il = make_label(ib, (selected and "> " or "") .. it, selected and "ComboSelected" or "TextInactive", {
+                Position = UDim2.fromOffset(5, 0), Size = UDim2.new(1, -7, 1, 0), ZIndex = 505,
+            })
+            ib.MouseEnter:Connect(function()
+                if not get_state(i) then tween(il, 0.1, { TextColor3 = Library.Theme.TextActive }):Play() end
+            end)
+            ib.MouseLeave:Connect(function()
+                if not get_state(i) then tween(il, 0.1, { TextColor3 = Library.Theme.TextInactive }):Play() end
+            end)
+            ib.MouseButton1Click:Connect(function()
+                on_pick(i)
+                if multi then
+                    local s = get_state(i)
+                    il.Text = (s and "> " or "") .. it
+                    il.TextColor3 = s and Library.Theme.ComboSelected or Library.Theme.TextInactive
+                else
+                    close_all_popups()
+                end
+            end)
+        end
+
+        tween(container, 0.15, { Position = UDim2.fromOffset(0, 0) }):Play()
+        open_popups[#open_popups + 1] = function() blocker:Destroy() pop:Destroy() end
+        return pop
+    end
 
     local function set(i, fire_callback)
-        index = i
-        preview.Text = items[index] or ""
-        if flag then Library.Flags[flag] = index end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, index, items[index])
+        Cfg.Value = i
+        preview.Text = Cfg.Options[i] or ""
+        if Cfg.Flag then Library.Flags[Cfg.Flag] = i end
+        if fire_callback ~= false and Cfg.Callback then
+            task.spawn(Cfg.Callback, i, Cfg.Options[i])
         end
     end
 
-    box.MouseEnter:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
-    end)
-    box.MouseLeave:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
-    end)
+    box.MouseEnter:Connect(function() tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play() end)
+    box.MouseLeave:Connect(function() tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play() end)
     box.MouseButton1Click:Connect(function()
-        if icon.IsOpen() then
-            close_all_popups()
-            icon.SetOpen(false)
-            return
-        end
+        if icon.IsOpen() then close_all_popups(); icon.SetOpen(false); return end
         icon.SetOpen(true)
-        build_combo_popup(box, items, false, function(i) return i == index end, function(i)
+        build_combo_popup(box, Cfg.Options, false, function(i) return i == Cfg.Value end, function(i)
             set(i, true)
+            icon.SetOpen(false)
         end)
-        open_popups[#open_popups + 1] = function()
-            icon.SetOpen(false)
-        end
+        open_popups[#open_popups + 1] = function() icon.SetOpen(false) end
     end)
 
-    local ctrl = {
-        Set = function(_, i, f) set(i, f) end,
-        Get = function() return index, items[index] end,
-        Refresh = function(_, new_items)
-            items = new_items
-            index = math.clamp(index, 1, #items)
-            preview.Text = items[index] or ""
-            if flag then Library.Flags[flag] = index end
-        end,
-    }
-    if flag then
-        Library.Flags[flag] = index
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = index
+    local defaultIndex = 1
+    if Cfg.Default then
+        for i, opt in ipairs(Cfg.Options) do if opt == Cfg.Default then defaultIndex = i break end end
     end
-    if callback and default then
-        task.spawn(callback, index, items[index])
-    end
-    return ctrl
+    set(defaultIndex, false)
+    Library.Elements[Cfg.Flag] = Cfg
+    return Cfg
 end
 
-function Library._GroupMethods:MultiCombo(text, items, defaults, callback, flag)
-    local state = {}
-    for i = 1, #items do state[i] = defaults and defaults[i] or false end
-    local row = next_row(self, 34)
-    make_label(row, text, "TextInactive", {
-        Position = UDim2.fromOffset(1, 0),
-        Size = UDim2.fromOffset(120, 13),
-        TextYAlignment = Enum.TextYAlignment.Top,
-        ZIndex = 3,
-    })
-
-    local box = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 0, 18),
-        ClipsDescendants = true,
-        ZIndex = 3,
-    }, row)
-    local _, b_fill = framed_box(box, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
-    local preview = make_label(box, "", "TextInactive", {
-        Position = UDim2.fromOffset(5, 1),
-        Size = UDim2.new(1, -20, 1, -2),
-        TextSize = 12,
-        ZIndex = 4,
-    })
-    local icon = plus_icon(box, "Accent")
-
-    local function refresh()
-        local parts = {}
-        for i, on in ipairs(state) do
-            if on then table.insert(parts, items[i]) end
-        end
-        preview.Text = (#parts == 0) and "none showing" or table.concat(parts, ", ")
-    end
-    refresh()
-
-    local function set(st, fire_callback)
-        state = st
-        refresh()
-        if flag then Library.Flags[flag] = deep_copy(state) end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, deep_copy(state))
-        end
-    end
-
-    box.MouseEnter:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
-    end)
-    box.MouseLeave:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
-    end)
-    box.MouseButton1Click:Connect(function()
-        if icon.IsOpen() then
-            close_all_popups()
-            icon.SetOpen(false)
-            return
-        end
-        icon.SetOpen(true)
-        build_combo_popup(box, items, true, function(i) return state[i] end, function(i)
-            state[i] = not state[i]
-            refresh()
-            if flag then Library.Flags[flag] = deep_copy(state) end
-            if callback then task.spawn(callback, deep_copy(state)) end
-        end)
-        open_popups[#open_popups + 1] = function()
-            icon.SetOpen(false)
-        end
-    end)
-
-    local ctrl = {
-        Set = function(_, st, f) set(st, f) end,
-        Get = function() return deep_copy(state) end,
-    }
-    if flag then
-        Library.Flags[flag] = deep_copy(state)
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = deep_copy(state)
-    end
-    return ctrl
-end
-
-function Library._GroupMethods:TextBox(text, default, callback, flag)
-    local row = next_row(self, 34)
-    make_label(row, text, "TextInactive", {
-        Position = UDim2.fromOffset(1, 0),
-        Size = UDim2.fromOffset(120, 13),
-        TextYAlignment = Enum.TextYAlignment.Top,
-        ZIndex = 3,
-    })
-
-    local box_frame = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 0, 18),
-        ZIndex = 3,
-    }, row)
-    local _, b_fill = framed_box(box_frame, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
-    local tb = new_instance("TextBox", {
-        BackgroundTransparency = 1,
-        Text = default or "",
-        TextColor3 = Library.Theme.TextActive,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Position = UDim2.fromOffset(5, 0),
-        Size = UDim2.new(1, -10, 1, 0),
-        ClearTextOnFocus = false,
-        ZIndex = 4,
-    }, b_fill)
-    apply_font(tb, false)
-    Library:RegisterTheme(tb, "TextColor3", "TextActive")
-
-    local function set(str, fire_callback)
-        tb.Text = str or ""
-        if flag then Library.Flags[flag] = str end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, str)
-        end
-    end
-
-    tb.FocusLost:Connect(function()
-        set(tb.Text, true)
-    end)
-
-    local ctrl = {
-        Set = function(_, str, f) set(str, f) end,
-        Get = function() return tb.Text end,
-    }
-    if flag then
-        Library.Flags[flag] = default or ""
-        Library.Controls[flag] = ctrl
-        Library.Defaults[flag] = default or ""
-    end
-    return ctrl
-end
-
-function Library._GroupMethods:Button(text, callback)
-    local row = next_row(self, 20)
-    local btn = new_instance("TextButton", {
-        Text = "",
-        AutoButtonColor = false,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 3,
-    }, row)
-    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ComboFill", { ZIndex = 3 })
-    make_label(btn, text, "TextActive", {
-        Size = UDim2.fromScale(1, 1),
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 4,
-    })
-    btn.MouseButton1Click:Connect(function()
-        if callback then task.spawn(callback) end
-    end)
-    btn.MouseEnter:Connect(function()
-        tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(35, 36, 45) }):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ComboFill }):Play()
-    end)
-end
-
-function Library._GroupMethods:Label(text)
-    local row = next_row(self, 14)
-    make_label(row, text, "TextInactive", {
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 3,
-    })
-end
-
-function Library._GroupMethods:Divider()
-    local row = next_row(self, 6)
-    local line = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, 2),
-        Size = UDim2.new(1, 0, 0, 1),
-        ZIndex = 3,
-    }, row)
-    Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
-end
-
+-- MultiDropdown
 function Library._GroupMethods:MultiDropdown(text, items, defaults, callback, flag)
     local state = {}
     for i = 1, #items do state[i] = defaults and defaults[i] or false end
@@ -2045,9 +1853,7 @@ function Library._GroupMethods:MultiDropdown(text, items, defaults, callback, fl
 
     local function refresh()
         local parts = {}
-        for i, on in ipairs(state) do
-            if on then table.insert(parts, items[i]) end
-        end
+        for i, on in ipairs(state) do if on then table.insert(parts, items[i]) end end
         preview.Text = (#parts == 0) and "none showing" or table.concat(parts, ", ")
     end
     refresh()
@@ -2056,23 +1862,13 @@ function Library._GroupMethods:MultiDropdown(text, items, defaults, callback, fl
         state = st
         refresh()
         if flag then Library.Flags[flag] = deep_copy(state) end
-        if fire_callback ~= false and callback then
-            task.spawn(callback, deep_copy(state))
-        end
+        if fire_callback ~= false and callback then task.spawn(callback, deep_copy(state)) end
     end
 
-    box.MouseEnter:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play()
-    end)
-    box.MouseLeave:Connect(function()
-        tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play()
-    end)
+    box.MouseEnter:Connect(function() tween(preview, 0.12, { TextColor3 = Library.Theme.TextActive }):Play() end)
+    box.MouseLeave:Connect(function() tween(preview, 0.12, { TextColor3 = Library.Theme.TextInactive }):Play() end)
     box.MouseButton1Click:Connect(function()
-        if icon.IsOpen() then
-            close_all_popups()
-            icon.SetOpen(false)
-            return
-        end
+        if icon.IsOpen() then close_all_popups(); icon.SetOpen(false); return end
         icon.SetOpen(true)
         build_combo_popup(box, items, true, function(i) return state[i] end, function(i)
             state[i] = not state[i]
@@ -2080,9 +1876,7 @@ function Library._GroupMethods:MultiDropdown(text, items, defaults, callback, fl
             if flag then Library.Flags[flag] = deep_copy(state) end
             if callback then task.spawn(callback, deep_copy(state)) end
         end)
-        open_popups[#open_popups + 1] = function()
-            icon.SetOpen(false)
-        end
+        open_popups[#open_popups + 1] = function() icon.SetOpen(false) end
     end)
 
     local ctrl = {
@@ -2097,6 +1891,242 @@ function Library._GroupMethods:MultiDropdown(text, items, defaults, callback, fl
     return ctrl
 end
 
+-- Colorpicker
+function Library._GroupMethods:Colorpicker(params)
+    local Cfg = {
+        Name = params.Name or "colorpicker",
+        Flag = params.Flag or Library:MakeFlag(self, 'colorpicker'),
+        Default = params.Default or Color3.fromRGB(255,255,255),
+        Callback = params.Callback or function() end,
+        Alpha = params.Alpha or 1,
+        Items = {},
+    }
+    local row = next_row(self, 14)
+    make_label(row, Cfg.Name, "TextInactive", {
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, -20, 1, 0),
+        ZIndex = 3,
+    })
+
+    local btn = new_instance("TextButton", {
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(12, 12),
+        Position = UDim2.new(1, -12, 0, 1),
+        ZIndex = 4,
+    }, row)
+    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", Cfg.Default, { ZIndex = 4 })
+
+    local function set(value, fire_callback)
+        fill.BackgroundColor3 = value
+        if Cfg.Flag then Library.Flags[Cfg.Flag] = value end
+        if fire_callback ~= false and Cfg.Callback then task.spawn(Cfg.Callback, value) end
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        close_all_popups()
+        local abs = btn.AbsolutePosition
+        Library._ColorPicker(popup_layer, abs + Vector2.new(0, 14), fill.BackgroundColor3, function(c) set(c, true) end)
+    end)
+
+    set(Cfg.Default, false)
+    Library.Elements[Cfg.Flag] = Cfg
+    return Cfg
+end
+
+-- ColorPicker helper (popup)
+function Library._ColorPicker(parent, pos, start_color, on_change)
+    local h, s, v = Color3.toHSV(start_color)
+    local W = 150
+    local pop = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(pos.X - W + 12, pos.Y),
+        Size = UDim2.fromOffset(W, 120),
+        ZIndex = 510,
+    }, parent)
+    local _, pf = framed_box(pop, "OuterBorder", "InnerBorder", "PanelFill", { ZIndex = 510 })
+
+    local sv = new_instance("ImageButton", {
+        BackgroundColor3 = Color3.fromHSV(h, 1, 1),
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(6, 6),
+        Size = UDim2.fromOffset(W - 30, 100),
+        ZIndex = 511,
+        AutoButtonColor = false,
+    }, pf)
+    local white = new_instance("Frame", { BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0, Size = UDim2.fromScale(1,1), ZIndex = 511 }, sv)
+    new_instance("UIGradient", { Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1)}) }, white)
+    local black = new_instance("Frame", { BackgroundColor3 = Color3.new(0,0,0), BorderSizePixel = 0, Size = UDim2.fromScale(1,1), ZIndex = 511 }, sv)
+    new_instance("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)}) }, black)
+
+    local circle = new_instance("Frame", {
+        Name = "Indicator", Size = UDim2.fromOffset(7,7), AnchorPoint = Vector2.new(0.5,0.5),
+        BackgroundColor3 = Color3.new(1,1,1), Position = UDim2.fromScale(s, 1-v), ZIndex = 514,
+    }, sv)
+    new_instance("UICorner", { CornerRadius = UDim.new(1,0) }, circle)
+    new_instance("UIStroke", { Color = Color3.new(0,0,0), Thickness = 1 }, circle)
+
+    local hue = new_instance("ImageButton", {
+        BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+        Position = UDim2.new(1, -16, 0, 6), Size = UDim2.fromOffset(12, 100),
+        ZIndex = 511, AutoButtonColor = false,
+    }, pf)
+    local hg = new_instance("UIGradient", { Rotation = 90 }, hue)
+    hg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255,0,0)),
+        ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255,255,0)),
+        ColorSequenceKeypoint.new(0.34, Color3.fromRGB(0,255,0)),
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0,255,255)),
+        ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0,0,255)),
+        ColorSequenceKeypoint.new(0.84, Color3.fromRGB(255,0,255)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255,0,0)),
+    })
+
+    local function update_indicator() circle.Position = UDim2.fromScale(math.clamp(s,0,1), math.clamp(1-v,0,1)) end
+    local function push() update_indicator(); if on_change then on_change(Color3.fromHSV(h,s,v)) end end
+    local function update_sv() sv.BackgroundColor3 = Color3.fromHSV(h,1,1); push() end
+
+    local dragging_sv, dragging_hue = false, false
+    local function handle_picker(input)
+        local pos = Vector2.new(input.Position.X, input.Position.Y)
+        if dragging_sv then
+            s = math.clamp((pos.X - sv.AbsolutePosition.X) / sv.AbsoluteSize.X, 0, 1)
+            v = 1 - math.clamp((pos.Y - sv.AbsolutePosition.Y) / sv.AbsoluteSize.Y, 0, 1)
+            push()
+        elseif dragging_hue then
+            h = math.clamp((pos.Y - hue.AbsolutePosition.Y) / hue.AbsoluteSize.Y, 0, 1)
+            update_sv()
+        end
+    end
+
+    sv.InputBegan:Connect(function(input) if is_click(input) then dragging_sv = true; handle_picker(input) end end)
+    hue.InputBegan:Connect(function(input) if is_click(input) then dragging_hue = true; handle_picker(input) end end)
+    UserInputService.InputEnded:Connect(function(input) if is_click(input) then dragging_sv, dragging_hue = false, false end end)
+    UserInputService.InputChanged:Connect(function(input) if is_move(input) and (dragging_sv or dragging_hue) then handle_picker(input) end end)
+
+    local blocker = new_instance("TextButton", { BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1,1), ZIndex = 509 }, parent)
+    blocker.MouseButton1Click:Connect(function() if not dragging_sv and not dragging_hue then close_all_popups() end end)
+
+    update_indicator()
+    open_popups[#open_popups + 1] = function() blocker:Destroy(); pop:Destroy() end
+end
+
+-- Textbox
+function Library._GroupMethods:Textbox(params)
+    local Cfg = {
+        Name = params.Name or "textbox",
+        Flag = params.Flag or Library:MakeFlag(self, 'textbox'),
+        Default = params.Default or "",
+        Placeholder = params.Placeholder or "Type here...",
+        Callback = params.Callback or function() end,
+    }
+    local row = next_row(self, 34)
+    make_label(row, Cfg.Name, "TextInactive", {
+        Position = UDim2.fromOffset(1, 0),
+        Size = UDim2.fromOffset(120, 13),
+        TextYAlignment = Enum.TextYAlignment.Top,
+        ZIndex = 3,
+    })
+
+    local box_frame = new_instance("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, 16),
+        Size = UDim2.new(1, 0, 0, 18),
+        ZIndex = 3,
+    }, row)
+    local _, b_fill = framed_box(box_frame, "OuterBorder", "ComboInner", "ComboFill", { ZIndex = 3 })
+    local tb = new_instance("TextBox", {
+        BackgroundTransparency = 1,
+        Text = Cfg.Default,
+        TextColor3 = Library.Theme.TextActive,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Position = UDim2.fromOffset(5, 0),
+        Size = UDim2.new(1, -10, 1, 0),
+        ClearTextOnFocus = false,
+        ZIndex = 4,
+        PlaceholderText = Cfg.Placeholder,
+        PlaceholderColor3 = Library.Theme.TextInactive,
+    }, b_fill)
+    apply_font(tb, false)
+    Library:RegisterTheme(tb, "TextColor3", "TextActive")
+    Library:RegisterTheme(tb, "PlaceholderColor3", "TextInactive")
+
+    tb.Focused:Connect(function() Library.InputFocused = true end)
+    tb.FocusLost:Connect(function(enter)
+        Library.InputFocused = false
+        if enter then
+            if Cfg.Flag then Library.Flags[Cfg.Flag] = tb.Text end
+            Cfg.Callback(tb.Text)
+        end
+    end)
+
+    local ctrl = {
+        Set = function(_, str) tb.Text = str; if Cfg.Flag then Library.Flags[Cfg.Flag] = str end; Cfg.Callback(str) end,
+        Get = function() return tb.Text end,
+    }
+    if Cfg.Flag then
+        Library.Flags[Cfg.Flag] = Cfg.Default
+        Library.Controls[Cfg.Flag] = ctrl
+        Library.Defaults[Cfg.Flag] = Cfg.Default
+    end
+    return ctrl
+end
+
+-- Button
+function Library._GroupMethods:Button(params)
+    local row = next_row(self, 20)
+    local btn = new_instance("TextButton", {
+        Text = "",
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = 3,
+    }, row)
+    local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ComboFill", { ZIndex = 3 })
+    make_label(btn, params.Name or "Button", "TextActive", {
+        Size = UDim2.fromScale(1, 1),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 4,
+    })
+    btn.MouseButton1Click:Connect(function()
+        if params.Callback then task.spawn(params.Callback) end
+    end)
+    btn.MouseEnter:Connect(function() tween(fill, 0.12, { BackgroundColor3 = Color3.fromRGB(35,36,45) }):Play() end)
+    btn.MouseLeave:Connect(function() tween(fill, 0.12, { BackgroundColor3 = Library.Theme.ComboFill }):Play() end)
+end
+
+-- Separator
+function Library._GroupMethods:Separator(params)
+    local row = next_row(self, 2)
+    local line = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.InnerBorder,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, 0, 0, 1),
+        ZIndex = 3,
+    }, row)
+    Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
+end
+
+-- Divider (same as Separator, but with a name)
+function Library._GroupMethods:Divider(params)
+    local row = next_row(self, params and params.Height or 6)
+    local line = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.InnerBorder,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 2),
+        Size = UDim2.new(1, 0, 0, 1),
+        ZIndex = 3,
+    }, row)
+    Library:RegisterTheme(line, "BackgroundColor3", "InnerBorder")
+    if params and params.Name then
+        make_label(row, params.Name, "TextInactive", { Size = UDim2.fromScale(1,1), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 4 })
+    end
+end
+
+-- TabGroup (max 2 tabs)
 function Library._GroupMethods:TabGroup(tabs, defaultTab, options)
     options = options or {}
     local maxTabs = 2
@@ -2117,16 +2147,14 @@ function Library._GroupMethods:TabGroup(tabs, defaultTab, options)
 
     for i, name in ipairs(tabs) do
         local btn = new_instance("TextButton", {
-            Text = "",
-            AutoButtonColor = false,
-            BackgroundTransparency = 1,
+            Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
             Position = UDim2.fromOffset((i-1)*(tabWidth+gap), 0),
             Size = UDim2.fromOffset(tabWidth, 16),
             ZIndex = 4,
         }, host)
         local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 4 })
         local label = make_label(btn, name, "TextInactive", {
-            Size = UDim2.fromScale(1, 1),
+            Size = UDim2.fromScale(1,1),
             TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 5,
         })
@@ -2159,18 +2187,12 @@ function Library._GroupMethods:TabGroup(tabs, defaultTab, options)
     end
 
     for i, btnData in ipairs(tabButtons) do
-        btnData.btn.MouseButton1Click:Connect(function()
-            select(i)
-        end)
+        btnData.btn.MouseButton1Click:Connect(function() select(i) end)
         btnData.btn.MouseEnter:Connect(function()
-            if active ~= i then
-                tween(btnData.label, 0.12, { TextColor3 = Library.Theme.TabHover }):Play()
-            end
+            if active ~= i then tween(btnData.label, 0.12, { TextColor3 = Library.Theme.TabHover }):Play() end
         end)
         btnData.btn.MouseLeave:Connect(function()
-            if active ~= i then
-                tween(btnData.label, 0.12, { TextColor3 = Library.Theme.TabInactive }):Play()
-            end
+            if active ~= i then tween(btnData.label, 0.12, { TextColor3 = Library.Theme.TabInactive }):Play() end
         end)
     end
 
@@ -2200,164 +2222,19 @@ function Library._GroupMethods:TabGroup(tabs, defaultTab, options)
     return tabGroup
 end
 
--- -----------------------------------------------------------------
--- Color picker
--- -----------------------------------------------------------------
-function Library._ColorPicker(parent, pos, start_color, on_change)
-    local h, s, v = Color3.toHSV(start_color)
-    local W = 150
-    local pop = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(pos.X - W + 12, pos.Y),
-        Size = UDim2.fromOffset(W, 120),
-        ZIndex = 510,
-    }, parent)
-    local _, pf = framed_box(pop, "OuterBorder", "InnerBorder", "PanelFill", { ZIndex = 510 })
-
-    local sv = new_instance("ImageButton", {
-        BackgroundColor3 = Color3.fromHSV(h, 1, 1),
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(6, 6),
-        Size = UDim2.fromOffset(W - 30, 100),
-        ZIndex = 511,
-        AutoButtonColor = false,
-    }, pf)
-    local white = new_instance("Frame", {
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 511,
-    }, sv)
-    new_instance("UIGradient", {
-        Rotation = 0,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1)
-        }),
-    }, white)
-    local black = new_instance("Frame", {
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 511,
-    }, sv)
-    new_instance("UIGradient", {
-        Rotation = 90,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 0)
-        }),
-    }, black)
-
-    local circle = new_instance("Frame", {
-        Name = "Indicator",
-        Size = UDim2.fromOffset(7, 7),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        Position = UDim2.fromScale(s, 1 - v),
-        ZIndex = 514,
-    }, sv)
-    new_instance("UICorner", { CornerRadius = UDim.new(1, 0) }, circle)
-    new_instance("UIStroke", { Color = Color3.new(0, 0, 0), Thickness = 1 }, circle)
-
-    local hue = new_instance("ImageButton", {
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0,
-        Position = UDim2.new(1, -16, 0, 6),
-        Size = UDim2.fromOffset(12, 100),
-        ZIndex = 511,
-        AutoButtonColor = false,
-    }, pf)
-    local hg = new_instance("UIGradient", { Rotation = 90 }, hue)
-    hg.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
-        ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
-        ColorSequenceKeypoint.new(0.34, Color3.fromRGB(0, 255, 0)),
-        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
-        ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
-        ColorSequenceKeypoint.new(0.84, Color3.fromRGB(255, 0, 255)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 0)),
-    })
-
-    local function update_indicator()
-        circle.Position = UDim2.fromScale(math.clamp(s, 0, 1), math.clamp(1 - v, 0, 1))
-    end
-
-    local function push()
-        update_indicator()
-        if on_change then on_change(Color3.fromHSV(h, s, v)) end
-    end
-
-    local function update_sv()
-        sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-        push()
-    end
-
-    local dragging_sv, dragging_hue = false, false
-    local function handle_picker(input)
-        local pos = Vector2.new(input.Position.X, input.Position.Y)
-        if dragging_sv then
-            s = math.clamp((pos.X - sv.AbsolutePosition.X) / sv.AbsoluteSize.X, 0, 1)
-            v = 1 - math.clamp((pos.Y - sv.AbsolutePosition.Y) / sv.AbsoluteSize.Y, 0, 1)
-            push()
-        elseif dragging_hue then
-            h = math.clamp((pos.Y - hue.AbsolutePosition.Y) / hue.AbsoluteSize.Y, 0, 1)
-            update_sv()
-        end
-    end
-
-    sv.InputBegan:Connect(function(input)
-        if is_click(input) then
-            dragging_sv = true
-            handle_picker(input)
-        end
-    end)
-    hue.InputBegan:Connect(function(input)
-        if is_click(input) then
-            dragging_hue = true
-            handle_picker(input)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if is_click(input) then
-            dragging_sv, dragging_hue = false, false
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if is_move(input) and (dragging_sv or dragging_hue) then
-            handle_picker(input)
-        end
-    end)
-
-    local blocker = new_instance("TextButton", {
-        Name = "Blocker",
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 509,
-    }, parent)
-    blocker.MouseButton1Click:Connect(function()
-        if not dragging_sv and not dragging_hue then
-            close_all_popups()
-        end
-    end)
-
-    update_indicator()
-    open_popups[#open_popups + 1] = function()
-        blocker:Destroy()
-        pop:Destroy()
-    end
+-- Label
+function Library._GroupMethods:Label(text)
+    local row = next_row(self, 14)
+    make_label(row, text, "TextInactive", { Size = UDim2.fromScale(1,1), ZIndex = 3 })
 end
 
 -- -----------------------------------------------------------------
--- Built‑in Config Manager (scans folder live)
+-- Built‑in Config Manager, Theme Manager, UI Customization
 -- -----------------------------------------------------------------
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
-
     local config_combo
-    local name_box = group:TextBox("Config Name", "my_config", function(str) end, "_cfg_name")
+    local name_box = group:Textbox({ Name = "Config Name", Default = "my_config", Callback = function() end, Flag = "_cfg_name" })
 
     local function refresh_dropdown()
         local list = scan_config_files()
@@ -2368,65 +2245,36 @@ function Library:CreateConfigManager(tab, side)
         end
     end
 
-    config_combo = group:Combo("Saved Configs", scan_config_files(), 1, function(idx, name)
-        if name and name ~= "none" then
-            name_box:Set(name, false)
-        end
-    end, "_cfg_combo")
+    config_combo = group:Dropdown({ Name = "Saved Configs", Options = scan_config_files(), Default = "none", Callback = function(idx, name)
+        if name and name ~= "none" then name_box:Set(name) end
+    end, Flag = "_cfg_combo" })
 
-    group:Button("Save Config", function()
+    group:Button({ Name = "Save Config", Callback = function()
         local name = name_box:Get()
-        if name and name ~= "" then
-            Library:SaveConfig(name)
-            print("✅ Config saved:", name)
-            refresh_dropdown()
-        end
-    end)
-
-    group:Button("Load Config", function()
+        if name and name ~= "" then Library:SaveConfig(name); print("✅ Config saved:", name); refresh_dropdown() end
+    end })
+    group:Button({ Name = "Load Config", Callback = function()
         local _, name = config_combo:Get()
-        if name and name ~= "none" then
-            Library:LoadConfig(name)
-            print("✅ Config loaded:", name)
-        end
-    end)
-
-    group:Button("Delete Config", function()
+        if name and name ~= "none" then Library:LoadConfig(name); print("✅ Config loaded:", name) end
+    end })
+    group:Button({ Name = "Delete Config", Callback = function()
         local _, name = config_combo:Get()
-        if name and name ~= "none" then
-            Library:DeleteConfig(name)
-            print("🗑️ Config deleted:", name)
-            refresh_dropdown()
-        end
-    end)
-
-    group:Button("Refresh", function()
-        refresh_dropdown()
-        print("🔄 Config list refreshed")
-    end)
-
-    group:Button("Reset to Defaults", function()
-        Library:ResetToDefaults()
-        print("↻ Reset to defaults")
-    end)
-
+        if name and name ~= "none" then Library:DeleteConfig(name); print("🗑️ Config deleted:", name); refresh_dropdown() end
+    end })
+    group:Button({ Name = "Refresh", Callback = function() refresh_dropdown(); print("🔄 Config list refreshed") end })
+    group:Button({ Name = "Reset to Defaults", Callback = function() Library:ResetToDefaults(); print("↻ Reset to defaults") end })
     refresh_dropdown()
     return group
 end
 
--- -----------------------------------------------------------------
--- Built‑in Theme Manager (scans folder live)
--- -----------------------------------------------------------------
 function Library:CreateThemeManager(tab, side)
     local group = tab:Group("Theme Manager", side or "right")
-
     local theme_combo
-    local name_box = group:TextBox("Theme Name", "my_theme", function(str) end, "_theme_name")
+    local name_box = group:Textbox({ Name = "Theme Name", Default = "my_theme", Callback = function() end, Flag = "_theme_name" })
 
-    group:Combo("Preset Theme", {"Default", "Tokyo Night", "Crimson", "Emerald"}, 1, function(idx, name)
-        Library:SetPresetTheme(name)
-        print("Theme:", name)
-    end, "_theme_preset")
+    group:Dropdown({ Name = "Preset Theme", Options = {"Default","Tokyo Night","Crimson","Emerald"}, Default = "Default", Callback = function(idx, name)
+        Library:SetPresetTheme(name); print("Theme:", name)
+    end, Flag = "_theme_preset" })
 
     local function refresh_dropdown()
         local list = scan_theme_files()
@@ -2437,63 +2285,34 @@ function Library:CreateThemeManager(tab, side)
         end
     end
 
-    theme_combo = group:Combo("Saved Themes", scan_theme_files(), 1, function(idx, name)
-        if name and name ~= "none" then
-            name_box:Set(name, false)
-        end
-    end, "_theme_combo")
+    theme_combo = group:Dropdown({ Name = "Saved Themes", Options = scan_theme_files(), Default = "none", Callback = function(idx, name)
+        if name and name ~= "none" then name_box:Set(name) end
+    end, Flag = "_theme_combo" })
 
-    group:Button("Save Theme", function()
+    group:Button({ Name = "Save Theme", Callback = function()
         local name = name_box:Get()
-        if name and name ~= "" then
-            Library:SaveTheme(name)
-            print("💾 Theme saved:", name)
-            refresh_dropdown()
-        end
-    end)
-
-    group:Button("Load Theme", function()
+        if name and name ~= "" then Library:SaveTheme(name); print("💾 Theme saved:", name); refresh_dropdown() end
+    end })
+    group:Button({ Name = "Load Theme", Callback = function()
         local _, name = theme_combo:Get()
-        if name and name ~= "none" then
-            Library:LoadTheme(name)
-            print("💾 Theme loaded:", name)
-        end
-    end)
-
-    group:Button("Delete Theme", function()
+        if name and name ~= "none" then Library:LoadTheme(name); print("💾 Theme loaded:", name) end
+    end })
+    group:Button({ Name = "Delete Theme", Callback = function()
         local _, name = theme_combo:Get()
-        if name and name ~= "none" then
-            Library:DeleteTheme(name)
-            print("🗑️ Theme deleted:", name)
-            refresh_dropdown()
-        end
-    end)
-
-    group:Button("Refresh", function()
-        refresh_dropdown()
-        print("🔄 Theme list refreshed")
-    end)
-
-    group:Button("Reset Theme to Default", function()
-        Library:ResetThemeToDefault()
-        print("↻ Reset theme")
-    end)
-
+        if name and name ~= "none" then Library:DeleteTheme(name); print("🗑️ Theme deleted:", name); refresh_dropdown() end
+    end })
+    group:Button({ Name = "Refresh", Callback = function() refresh_dropdown(); print("🔄 Theme list refreshed") end })
+    group:Button({ Name = "Reset Theme to Default", Callback = function() Library:ResetThemeToDefault(); print("↻ Reset theme") end })
     refresh_dropdown()
     return group
 end
 
--- -----------------------------------------------------------------
--- Built‑in UI Customisation (includes tab visibility toggles)
--- -----------------------------------------------------------------
 function Library:CreateUICustomization(tab, side)
     local group = tab:Group("UI Customization", side or "left")
 
     group:Checkbox("UI Expansion (Resize)", Library.UIExpansion, function(val)
         Library.UIExpansion = val
-        if Library._UpdateResizeVisibility then
-            Library._UpdateResizeVisibility()
-        end
+        if Library._UpdateResizeVisibility then Library._UpdateResizeVisibility() end
     end, nil, "_ui_expansion")
 
     local win = tab.Window
@@ -2503,7 +2322,6 @@ function Library:CreateUICustomization(tab, side)
             if espTab then
                 espTab.Button.Visible = val
                 espTab.Page.Visible = val and (win.ActiveTab == espTab)
-                update_tab_positions(win)
             end
         end, nil, "_show_esp_tab")
     end
@@ -2513,103 +2331,49 @@ function Library:CreateUICustomization(tab, side)
             if infoTab then
                 infoTab.Button.Visible = val
                 infoTab.Page.Visible = val and (win.ActiveTab == infoTab)
-                update_tab_positions(win)
             end
         end, nil, "_show_info_tab")
     end
 
-    local leftText = Library.WatermarkOptions.leftText or "Lunex UI"
-    local rightText = Library.WatermarkOptions.rightText or "v1.0"
-    local leftColor = Library.WatermarkOptions.leftColor or Library.Theme.TextActive
-    local rightColor = Library.WatermarkOptions.rightColor or Library.Theme.Accent
-
-    group:Checkbox("Show Watermark", Library.WatermarkVisible, function(val)
+    -- Watermark controls
+    group:Checkbox("Show Watermark", Library.WatermarkVisible or false, function(val)
         Library.WatermarkVisible = val
         Library:_UpdateWatermark()
     end, nil, "_watermark_visible")
 
-    group:TextBox("Left Text", leftText, function(str)
-        Library.WatermarkOptions.leftText = str
-        Library:_UpdateWatermark()
-    end, "_watermark_left_text")
+    group:Textbox({ Name = "Left Text", Default = Library.WatermarkOptions.leftText or "Lunex UI", Callback = function(str)
+        Library.WatermarkOptions.leftText = str; Library:_UpdateWatermark()
+    end, Flag = "_watermark_left_text" })
 
-    group:ColorPicker("Left Color", leftColor, function(col)
-        Library.WatermarkOptions.leftColor = col
-        Library:_UpdateWatermark()
-    end, "_watermark_left_color")
+    group:Colorpicker({ Name = "Left Color", Default = Library.WatermarkOptions.leftColor or Library.Theme.TextActive, Callback = function(col)
+        Library.WatermarkOptions.leftColor = col; Library:_UpdateWatermark()
+    end, Flag = "_watermark_left_color" })
 
-    group:TextBox("Right Text", rightText, function(str)
-        Library.WatermarkOptions.rightText = str
-        Library:_UpdateWatermark()
-    end, "_watermark_right_text")
+    group:Textbox({ Name = "Right Text", Default = Library.WatermarkOptions.rightText or "v1.0", Callback = function(str)
+        Library.WatermarkOptions.rightText = str; Library:_UpdateWatermark()
+    end, Flag = "_watermark_right_text" })
 
-    group:ColorPicker("Right Color", rightColor, function(col)
-        Library.WatermarkOptions.rightColor = col
-        Library:_UpdateWatermark()
-    end, "_watermark_right_color")
+    group:Colorpicker({ Name = "Right Color", Default = Library.WatermarkOptions.rightColor or Library.Theme.Accent, Callback = function(col)
+        Library.WatermarkOptions.rightColor = col; Library:_UpdateWatermark()
+    end, Flag = "_watermark_right_color" })
 
     group:Label("────────── Theme Colors ──────────")
-
-    group:ColorPicker("Accent", Library.Theme.Accent, function(col)
+    group:Colorpicker({ Name = "Accent", Default = Library.Theme.Accent, Callback = function(col)
         Library.Theme.Accent = col
-        Library.Theme.AccentDark = Color3.new(col.R * 0.7, col.G * 0.7, col.B * 0.7)
+        Library.Theme.AccentDark = Color3.new(col.R*0.7, col.G*0.7, col.B*0.7)
         Library:RefreshTheme()
-    end, "_ui_accent")
-
-    group:ColorPicker("Text Active", Library.Theme.TextActive, function(col)
-        Library.Theme.TextActive = col
-        Library:RefreshTheme()
-    end, "_ui_text_active")
-
-    group:ColorPicker("Text Inactive", Library.Theme.TextInactive, function(col)
-        Library.Theme.TextInactive = col
-        Library:RefreshTheme()
-    end, "_ui_text_inactive")
-
-    group:ColorPicker("Panel Background", Library.Theme.PanelFill, function(col)
-        Library.Theme.PanelFill = col
-        Library:RefreshTheme()
-    end, "_ui_panel_fill")
-
-    group:ColorPicker("Content Background", Library.Theme.ContentFill, function(col)
-        Library.Theme.ContentFill = col
-        Library:RefreshTheme()
-    end, "_ui_content_fill")
-
-    group:ColorPicker("Group Background", Library.Theme.ChildFill, function(col)
-        Library.Theme.ChildFill = col
-        Library:RefreshTheme()
-    end, "_ui_child_fill")
-
-    group:ColorPicker("Header Top", Library.Theme.HeaderTop, function(col)
-        Library.Theme.HeaderTop = col
-        Library:RefreshTheme()
-    end, "_ui_header_top")
-
-    group:ColorPicker("Header Bottom", Library.Theme.HeaderBottom, function(col)
-        Library.Theme.HeaderBottom = col
-        Library:RefreshTheme()
-    end, "_ui_header_bottom")
-
-    group:ColorPicker("Outer Border", Library.Theme.OuterBorder, function(col)
-        Library.Theme.OuterBorder = col
-        Library:RefreshTheme()
-    end, "_ui_outer_border")
-
-    group:ColorPicker("Inner Border", Library.Theme.InnerBorder, function(col)
-        Library.Theme.InnerBorder = col
-        Library:RefreshTheme()
-    end, "_ui_inner_border")
-
-    group:ColorPicker("Tab Inactive", Library.Theme.TabInactive, function(col)
-        Library.Theme.TabInactive = col
-        Library:RefreshTheme()
-    end, "_ui_tab_inactive")
-
-    group:ColorPicker("Tab Hover", Library.Theme.TabHover, function(col)
-        Library.Theme.TabHover = col
-        Library:RefreshTheme()
-    end, "_ui_tab_hover")
+    end, Flag = "_ui_accent" })
+    group:Colorpicker({ Name = "Text Active", Default = Library.Theme.TextActive, Callback = function(col) Library.Theme.TextActive = col; Library:RefreshTheme() end, Flag = "_ui_text_active" })
+    group:Colorpicker({ Name = "Text Inactive", Default = Library.Theme.TextInactive, Callback = function(col) Library.Theme.TextInactive = col; Library:RefreshTheme() end, Flag = "_ui_text_inactive" })
+    group:Colorpicker({ Name = "Panel Background", Default = Library.Theme.PanelFill, Callback = function(col) Library.Theme.PanelFill = col; Library:RefreshTheme() end, Flag = "_ui_panel_fill" })
+    group:Colorpicker({ Name = "Content Background", Default = Library.Theme.ContentFill, Callback = function(col) Library.Theme.ContentFill = col; Library:RefreshTheme() end, Flag = "_ui_content_fill" })
+    group:Colorpicker({ Name = "Group Background", Default = Library.Theme.ChildFill, Callback = function(col) Library.Theme.ChildFill = col; Library:RefreshTheme() end, Flag = "_ui_child_fill" })
+    group:Colorpicker({ Name = "Header Top", Default = Library.Theme.HeaderTop, Callback = function(col) Library.Theme.HeaderTop = col; Library:RefreshTheme() end, Flag = "_ui_header_top" })
+    group:Colorpicker({ Name = "Header Bottom", Default = Library.Theme.HeaderBottom, Callback = function(col) Library.Theme.HeaderBottom = col; Library:RefreshTheme() end, Flag = "_ui_header_bottom" })
+    group:Colorpicker({ Name = "Outer Border", Default = Library.Theme.OuterBorder, Callback = function(col) Library.Theme.OuterBorder = col; Library:RefreshTheme() end, Flag = "_ui_outer_border" })
+    group:Colorpicker({ Name = "Inner Border", Default = Library.Theme.InnerBorder, Callback = function(col) Library.Theme.InnerBorder = col; Library:RefreshTheme() end, Flag = "_ui_inner_border" })
+    group:Colorpicker({ Name = "Tab Inactive", Default = Library.Theme.TabInactive, Callback = function(col) Library.Theme.TabInactive = col; Library:RefreshTheme() end, Flag = "_ui_tab_inactive" })
+    group:Colorpicker({ Name = "Tab Hover", Default = Library.Theme.TabHover, Callback = function(col) Library.Theme.TabHover = col; Library:RefreshTheme() end, Flag = "_ui_tab_hover" })
 
     return group
 end
@@ -2618,33 +2382,22 @@ end
 -- Watermark
 -- -----------------------------------------------------------------
 Library.WatermarkVisible = false
-Library.WatermarkOptions = {}
+Library.WatermarkOptions = { leftText = "Lunex UI", rightText = "v1.0", leftColor = nil, rightColor = nil }
 Library._WatermarkHost = nil
 
 function Library:_UpdateWatermark()
-    local opts = Library.WatermarkOptions or {}
-    local leftColor = opts.leftColor or Library.Theme.TextActive
-    local rightColor = opts.rightColor or Library.Theme.Accent
-    local leftText = opts.leftText or "Lunex UI"
-    local rightText = opts.rightText or "v1.0"
-    local buildText = opts.buildText or "" .. os.date("%b %d %Y")
-
-    if Library._WatermarkHost then
-        Library._WatermarkHost:Destroy()
-        Library._WatermarkHost = nil
-    end
-
+    if Library._WatermarkHost then Library._WatermarkHost:Destroy(); Library._WatermarkHost = nil end
     if not Library.WatermarkVisible then return end
 
     local PAD, GAP, H = 8, 4, 21
     local parts = {
-        {t = leftText,  color = leftColor},
-        {t = rightText, color = rightColor},
-        {t = buildText, color = Color3.fromRGB(100, 100, 100)},
+        {t = Library.WatermarkOptions.leftText or "Lunex UI", color = Library.WatermarkOptions.leftColor or Library.Theme.TextActive},
+        {t = Library.WatermarkOptions.rightText or "v1.0", color = Library.WatermarkOptions.rightColor or Library.Theme.Accent},
+        {t = os.date("%b %d %Y"), color = Color3.fromRGB(100,100,100)},
     }
     local total = PAD * 2
     for i, p in ipairs(parts) do
-        total = total + TextService:GetTextSize(p.t, FONT_SIZE, FONT, Vector2.new(10000, 100)).X
+        total = total + TextService:GetTextSize(p.t, FONT_SIZE, FONT, Vector2.new(10000,100)).X
         if i < #parts then total = total + GAP end
     end
 
@@ -2715,7 +2468,7 @@ function Library:_UpdateWatermark()
         Text = "",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
+        Size = UDim2.fromScale(1,1),
         ZIndex = 402,
     }, host)
 
@@ -2732,10 +2485,7 @@ function Library:_UpdateWatermark()
         if dragging and is_move(input) then
             local current = Vector2.new(input.Position.X, input.Position.Y)
             local delta = current - start_input
-            host.Position = UDim2.new(
-                start_pos.X.Scale, start_pos.X.Offset + delta.X,
-                start_pos.Y.Scale, start_pos.Y.Offset + delta.Y
-            )
+            host.Position = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -2746,7 +2496,239 @@ function Library:_UpdateWatermark()
 end
 
 -- -----------------------------------------------------------------
--- Mobile toggle
+-- Dock (movable button bar)
+-- -----------------------------------------------------------------
+function Library:Dock(params)
+    local Cfg = { Buttons = params.Buttons or {}, Items = {}, ButtonInstances = {} }
+    local Items = Cfg.Items
+
+    Items['Dock'] = new_instance("Frame", {
+        Parent = Library.Extras or screen_gui,
+        Name = "Dock",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0.01, 0),
+        Size = UDim2.fromOffset(140, 50),
+        BackgroundColor3 = Color3.new(1,1,1),
+        BorderSizePixel = 0,
+        ZIndex = 100,
+    })
+    local bg = new_instance("Frame", { BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Size = UDim2.fromScale(1,1) }, Items['Dock'])
+    Library:RegisterTheme(bg, "BackgroundColor3", "PanelFill")
+    local out = new_instance("UIStroke", { Color = Library.Theme.OuterBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, Items['Dock'])
+    Library:RegisterTheme(out, "Color", "OuterBorder")
+    local inn = new_instance("UIStroke", { Color = Library.Theme.InnerBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, BorderStrokePosition = Enum.BorderStrokePosition.Inner }, Items['Dock'])
+    Library:RegisterTheme(inn, "Color", "InnerBorder")
+
+    local inner = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -14, 1, -14), Position = UDim2.fromOffset(7, 7) }, Items['Dock'])
+    local accent = new_instance("Frame", { BackgroundColor3 = Library.Theme.Accent, Size = UDim2.new(1, 0, 0, 2), Position = UDim2.fromOffset(0, 0), BorderSizePixel = 0 }, inner)
+    Library:RegisterTheme(accent, "BackgroundColor3", "Accent")
+
+    local holder = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, -2), Position = UDim2.fromOffset(0, 2) }, inner)
+    new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, holder)
+
+    Library:Draggify(Items['Dock'])
+
+    function Cfg:Button(btnParams)
+        local icon = btnParams.Icon or ""
+        local toggle = btnParams.Toggle or false
+        local default = btnParams.Default or false
+        local callback = btnParams.Callback or function() end
+
+        local btn = new_instance("TextButton", { Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromOffset(24, 24), ZIndex = 1 }, holder)
+        local btnBg = new_instance("Frame", { BackgroundColor3 = Library.Theme.ChildFill, BorderSizePixel = 0, Size = UDim2.fromScale(1,1), ZIndex = 0 }, btn)
+        Library:RegisterTheme(btnBg, "BackgroundColor3", "ChildFill")
+        local outline = new_instance("UIStroke", { Color = Library.Theme.InnerBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, btnBg)
+        Library:RegisterTheme(outline, "Color", "InnerBorder")
+
+        local image = new_instance("ImageButton", {
+            BackgroundTransparency = 1,
+            Image = icon,
+            Size = UDim2.new(1, -8, 1, -10),
+            Position = UDim2.fromOffset(4, 2),
+            ScaleType = Enum.ScaleType.Fit,
+            ResampleMode = Enum.ResamplerMode.Pixelated,
+            ImageColor3 = default and Library.Theme.Accent or Library.Theme.TabInactive,
+            ZIndex = 1,
+        }, btn)
+        Library:RegisterTheme(image, "ImageColor3", default and "Accent" or "TabInactive")
+
+        local state = default
+        local function set(newState)
+            state = newState
+            image.ImageColor3 = state and Library.Theme.Accent or Library.Theme.TabInactive
+            if toggle then callback(state) end
+        end
+
+        btn.MouseButton1Click:Connect(function()
+            if toggle then set(not state) else callback() end
+        end)
+        btn.MouseEnter:Connect(function()
+            if not state then tween(image, 0.12, { ImageColor3 = Library.Theme.Accent }):Play() end
+        end)
+        btn.MouseLeave:Connect(function()
+            if not state then tween(image, 0.12, { ImageColor3 = Library.Theme.TabInactive }):Play() end
+        end)
+
+        table.insert(Cfg.ButtonInstances, {btn = btn, image = image, set = set})
+        return set
+    end
+
+    for _, b in ipairs(Cfg.Buttons) do Cfg:Button(b) end
+    return Cfg
+end
+
+-- -----------------------------------------------------------------
+-- KeybindList
+-- -----------------------------------------------------------------
+function Library:KeybindList(params)
+    local Cfg = { Items = {}, EntryInstances = {} }
+    local Items = Cfg.Items
+
+    Items['Container'] = new_instance("Frame", {
+        Parent = Library.Extras or screen_gui,
+        Name = "KeybindList",
+        Position = UDim2.fromOffset(200, 300),
+        Size = UDim2.fromOffset(180, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BorderSizePixel = 0,
+        BackgroundColor3 = Color3.new(1,1,1),
+        ZIndex = 999,
+    })
+    local bg = new_instance("Frame", { BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Size = UDim2.fromScale(1,1), ZIndex = 0 }, Items['Container'])
+    Library:RegisterTheme(bg, "BackgroundColor3", "PanelFill")
+    local out = new_instance("UIStroke", { Color = Library.Theme.OuterBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, Items['Container'])
+    Library:RegisterTheme(out, "Color", "OuterBorder")
+    local inn = new_instance("UIStroke", { Color = Library.Theme.InnerBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, BorderStrokePosition = Enum.BorderStrokePosition.Inner }, Items['Container'])
+    Library:RegisterTheme(inn, "Color", "InnerBorder")
+
+    local inner = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -8, 1, -8), Position = UDim2.fromOffset(4, 4), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 1 }, Items['Container'])
+    local title = make_label(inner, "Keybind List", "Accent", { Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Center, Bold = true, ZIndex = 2 })
+    local entries = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.fromOffset(0, 18), ZIndex = 2 }, inner)
+    new_instance("UIListLayout", { FillDirection = Enum.FillDirection.Vertical, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, entries)
+    Items['Entries'] = entries
+
+    Library:Draggify(Items['Container'])
+
+    function Cfg:AddEntry(keybindObj)
+        local row = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 12), ZIndex = 2 }, entries)
+        new_instance("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+
+        local arrow = make_label(row, ">", "TextInactive", { Size = UDim2.fromOffset(8, 12), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 2 })
+        local name = make_label(row, keybindObj.Name, "TextInactive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+        local sep = make_label(row, "|", "TextInactive", { Size = UDim2.fromOffset(6, 12), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 2 })
+        local keyLabel = make_label(row, "[" .. key_text(keybindObj.Key) .. "]", "TextInactive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+        local keyBg = new_instance("Frame", { BackgroundColor3 = Library.Theme.ChildFill, BorderSizePixel = 0, Size = UDim2.new(0, keyLabel.TextBounds.X + 6, 0, 14), Position = UDim2.fromOffset(0, -1), ZIndex = 1 }, row)
+        Library:RegisterTheme(keyBg, "BackgroundColor3", "ChildFill")
+        keyLabel.Parent = keyBg
+        keyLabel.Size = UDim2.new(1, 0, 1, 0)
+        keyLabel.Position = UDim2.fromOffset(3, 0)
+
+        local function update()
+            local active = keybindObj.Active or false
+            local color = active and Library.Theme.Accent or Library.Theme.TabInactive
+            arrow.TextColor3 = color
+            name.TextColor3 = color
+        end
+        Library:RegisterThemeCallback(update)
+        keybindObj._updateEntry = update
+        table.insert(Cfg.EntryInstances, {row = row, keybind = keybindObj})
+        return row
+    end
+
+    return Cfg
+end
+
+-- -----------------------------------------------------------------
+-- Watermark (live stats)
+-- -----------------------------------------------------------------
+function Library:Watermark(params)
+    local Cfg = { Name = params.Name or "Watermark", Modules = params.Modules or {}, Items = {} }
+    local Items = Cfg.Items
+
+    Items['Container'] = new_instance("Frame", {
+        Parent = Library.Extras or screen_gui,
+        Name = "Watermark",
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.fromOffset(0, 26),
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundColor3 = Color3.new(1,1,1),
+        BorderSizePixel = 0,
+        ZIndex = 200,
+    })
+    local bg = new_instance("Frame", { BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Size = UDim2.fromScale(1,1) }, Items['Container'])
+    Library:RegisterTheme(bg, "BackgroundColor3", "PanelFill")
+    local out = new_instance("UIStroke", { Color = Library.Theme.OuterBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, Items['Container'])
+    Library:RegisterTheme(out, "Color", "OuterBorder")
+    local inn = new_instance("UIStroke", { Color = Library.Theme.InnerBorder, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, BorderStrokePosition = Enum.BorderStrokePosition.Inner }, Items['Container'])
+    Library:RegisterTheme(inn, "Color", "InnerBorder")
+
+    local inner = new_instance("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -8, 1, -8), Position = UDim2.fromOffset(4, 4) }, Items['Container'])
+    new_instance("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, inner)
+
+    local nameLabel = make_label(inner, Cfg.Name, "TextActive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+    local sep = make_label(inner, " | ", "TextInactive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+
+    local Labels = {}
+    for _, module in ipairs(Cfg.Modules) do
+        local lbl = make_label(inner, "", "TextInactive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+        table.insert(Labels, lbl)
+        if _ < #Cfg.Modules then
+            make_label(inner, " | ", "TextInactive", { Size = UDim2.fromOffset(0, 12), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 2 })
+        end
+    end
+
+    Library:Draggify(Items['Container'])
+
+    local function resolve(module)
+        if module.Type == "Text" then return module.Value or ""
+        elseif module.Type == "Fps" then return "FPS: " .. tostring(CurrentFps)
+        elseif module.Type == "Ping" then
+            local ping = 0
+            local stats = Stats:FindFirstChild("Network")
+            if stats and stats:FindFirstChild("ServerStatsItem") then
+                local p = stats.ServerStatsItem:FindFirstChild("Data Ping")
+                if p then ping = math.floor(p:GetValue()) end
+            end
+            return "Ping: " .. ping .. "ms"
+        elseif module.Type == "Time" then return os.date("%H:%M:%S")
+        elseif module.Type == "Custom" then return module.Value or ""
+        end
+        return ""
+    end
+
+    local CurrentFps = 0
+    local frames = 0
+    local last = tick()
+    RunService.RenderStepped:Connect(function()
+        frames = frames + 1
+        local now = tick()
+        if now - last >= 1 then CurrentFps = frames; frames = 0; last = now end
+    end)
+
+    task.spawn(function()
+        while task.wait(0.2) do
+            for i, module in ipairs(Cfg.Modules) do
+                if Labels[i] then Labels[i].Text = resolve(module) end
+            end
+            local total = 0
+            for _, child in ipairs(inner:GetChildren()) do
+                if child:IsA("TextLabel") then total = total + child.TextBounds.X + 2 end
+            end
+            Items['Container'].Size = UDim2.fromOffset(total + 16, 26)
+        end
+    end)
+
+    return Cfg
+end
+
+-- -----------------------------------------------------------------
+-- Mobile Toggle, Cursor, BindToggle, ResizeToggle
 -- -----------------------------------------------------------------
 function Library:CreateMobileToggle(on_toggle)
     local host = new_instance("Frame", {
@@ -2758,34 +2740,11 @@ function Library:CreateMobileToggle(on_toggle)
         ZIndex = 600,
     }, screen_gui)
     Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-
-    local f_inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        ZIndex = 600,
-    }, host)
+    local f_inner = new_instance("Frame", { BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600 }, host)
     Library:RegisterTheme(f_inner, "BackgroundColor3", "InnerBorder")
-
-    local fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.PanelFill,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 1, -4),
-        ZIndex = 600,
-    }, host)
+    local fill = new_instance("Frame", { BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 600 }, host)
     Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-
-    local btn = new_instance("TextButton", {
-        Name = "ToggleBtn",
-        Text = "UI",
-        TextColor3 = Library.Theme.Accent,
-        BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 601,
-        AutoButtonColor = false,
-    }, fill)
+    local btn = new_instance("TextButton", { Name = "ToggleBtn", Text = "UI", TextColor3 = Library.Theme.Accent, BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), ZIndex = 601, AutoButtonColor = false }, fill)
     apply_font(btn, true)
     Library:RegisterTheme(btn, "TextColor3", "Accent")
 
@@ -2793,10 +2752,7 @@ function Library:CreateMobileToggle(on_toggle)
     local moved = false
     btn.InputBegan:Connect(function(input)
         if is_click(input) then
-            dragging = true
-            start_pos = host.Position
-            start_input = Vector2.new(input.Position.X, input.Position.Y)
-            moved = false
+            dragging = true; start_pos = host.Position; start_input = Vector2.new(input.Position.X, input.Position.Y); moved = false
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -2804,108 +2760,58 @@ function Library:CreateMobileToggle(on_toggle)
             local current = Vector2.new(input.Position.X, input.Position.Y)
             local delta = current - start_input
             if delta.Magnitude > 5 then moved = true end
-            host.Position = UDim2.new(
-                start_pos.X.Scale, start_pos.X.Offset + delta.X,
-                start_pos.Y.Scale, start_pos.Y.Offset + delta.Y
-            )
+            host.Position = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
         if is_click(input) then
-            if dragging and not moved and on_toggle then
-                on_toggle()
-            end
+            if dragging and not moved and on_toggle then on_toggle() end
             dragging = false
         end
     end)
-
     return host
 end
 
--- -----------------------------------------------------------------
--- Custom cursor
--- -----------------------------------------------------------------
+-- Cursor
 local function make_cursor()
     local S = 11
     local C = math.floor(S / 2)
-    local gui = new_instance("ScreenGui", {
-        Name = "cursor",
-        IgnoreGuiInset = true,
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        DisplayOrder = 2147483647,
-    }, get_gui_parent())
-
-    local host = new_instance("Frame", {
-        Name = "Cross",
-        BackgroundTransparency = 1,
-        Active = false,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Size = UDim2.fromOffset(S, S),
-        Visible = false,
-        ZIndex = 1,
-    }, gui)
-    local function no_interact(o)
-        o.Active = false
-        pcall(function() o.Interactable = false end)
-    end
+    local gui = new_instance("ScreenGui", { Name = "cursor", IgnoreGuiInset = true, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 2147483647 }, get_gui_parent())
+    local host = new_instance("Frame", { Name = "Cross", BackgroundTransparency = 1, Active = false, AnchorPoint = Vector2.new(0.5,0.5), Size = UDim2.fromOffset(S,S), Visible = false, ZIndex = 1 }, gui)
+    local function no_interact(o) o.Active = false; pcall(function() o.Interactable = false end) end
     no_interact(host)
-
     local function bar(color_key, x, y, w, h, z)
         local color = type(color_key) == "string" and Library.Theme[color_key] or color_key
-        local f = new_instance("Frame", {
-            BackgroundColor3 = color,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(x, y),
-            Size = UDim2.fromOffset(w, h),
-            ZIndex = z,
-        }, host)
+        local f = new_instance("Frame", { BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(x,y), Size = UDim2.fromOffset(w,h), ZIndex = z }, host)
         no_interact(f)
-        if type(color_key) == "string" then
-            Library:RegisterTheme(f, "BackgroundColor3", color_key)
-        end
+        if type(color_key) == "string" then Library:RegisterTheme(f, "BackgroundColor3", color_key) end
     end
-
-    bar("OuterBorder", 0, C - 1, S, 3, 1)
-    bar("OuterBorder", C - 1, 0, 3, S, 1)
-    bar("TextActive", 1, C, S - 2, 1, 2)
-    bar("TextActive", C, 1, 1, S - 2, 2)
-
+    bar("OuterBorder", 0, C-1, S, 3, 1)
+    bar("OuterBorder", C-1, 0, 3, S, 1)
+    bar("TextActive", 1, C, S-2, 1, 2)
+    bar("TextActive", C, 1, 1, S-2, 2)
     return host
 end
 
 Library.CursorEnabled = not UserInputService.TouchEnabled
 local cursor = make_cursor()
 local cursor_conns = {}
-
-local function move_cursor()
-    local m = UserInputService:GetMouseLocation()
-    cursor.Position = UDim2.fromOffset(m.X, m.Y)
-end
-
+local function move_cursor() local m = UserInputService:GetMouseLocation(); cursor.Position = UDim2.fromOffset(m.X, m.Y) end
 local function set_cursor_enabled(on)
     on = on and Library.CursorEnabled
     cursor.Visible = on
-    if not UserInputService.TouchEnabled then
-        UserInputService.MouseIconEnabled = not on
-    end
+    if not UserInputService.TouchEnabled then UserInputService.MouseIconEnabled = not on end
     if on and #cursor_conns == 0 then
         move_cursor()
         cursor_conns[1] = RunService.RenderStepped:Connect(move_cursor)
-        cursor_conns[2] = UserInputService.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                move_cursor()
-            end
-        end)
+        cursor_conns[2] = UserInputService.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then move_cursor() end end)
     elseif not on and #cursor_conns > 0 then
         for _, c in ipairs(cursor_conns) do c:Disconnect() end
         table.clear(cursor_conns)
     end
 end
 
--- -----------------------------------------------------------------
--- Toggle binding
--- -----------------------------------------------------------------
+-- BindToggle
 function Library:BindToggle(window)
     local visible = true
     set_cursor_enabled(true)
@@ -2914,34 +2820,20 @@ function Library:BindToggle(window)
         visible = not visible
         close_all_popups()
         set_cursor_enabled(visible)
-
-        if visible then
-            window.Canvas.Visible = true
-        end
-
-        local tw = TweenService:Create(window.Canvas, TweenInfo.new(0.30, Enum.EasingStyle.Cubic, visible and Enum.EasingDirection.Out or Enum.EasingDirection.In), {
-            GroupTransparency = visible and 0 or 1,
-        })
+        if visible then window.Canvas.Visible = true end
+        local tw = TweenService:Create(window.Canvas, TweenInfo.new(0.30, Enum.EasingStyle.Cubic, visible and Enum.EasingDirection.Out or Enum.EasingDirection.In), { GroupTransparency = visible and 0 or 1 })
         tw:Play()
-        if not visible then
-            tw.Completed:Connect(function()
-                window.Canvas.Visible = false
-            end)
-        end
+        if not visible then tw.Completed:Connect(function() window.Canvas.Visible = false end) end
     end
 
     UserInputService.InputBegan:Connect(function(input, game_processed)
-        if not game_processed and input.KeyCode == Library.ToggleKey then
-            toggle_ui()
-        end
+        if not game_processed and input.KeyCode == Library.ToggleKey then toggle_ui() end
     end)
 
     Library:CreateMobileToggle(toggle_ui)
 end
 
--- -----------------------------------------------------------------
--- Resize toggle button (bottom-left)
--- -----------------------------------------------------------------
+-- Resize Toggle (bottom-left)
 function Library:CreateResizeToggle()
     local host = new_instance("Frame", {
         Name = "ResizeToggle",
@@ -2953,31 +2845,16 @@ function Library:CreateResizeToggle()
         Visible = true,
     }, screen_gui)
     Library:RegisterTheme(host, "BackgroundColor3", "OuterBorder")
-
-    local f_inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        ZIndex = 600,
-    }, host)
+    local f_inner = new_instance("Frame", { BackgroundColor3 = Library.Theme.InnerBorder, BorderSizePixel = 0, Position = UDim2.fromOffset(1,1), Size = UDim2.new(1,-2,1,-2), ZIndex = 600 }, host)
     Library:RegisterTheme(f_inner, "BackgroundColor3", "InnerBorder")
-
-    local fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.PanelFill,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 1, -4),
-        ZIndex = 600,
-    }, host)
+    local fill = new_instance("Frame", { BackgroundColor3 = Library.Theme.PanelFill, BorderSizePixel = 0, Position = UDim2.fromOffset(2,2), Size = UDim2.new(1,-4,1,-4), ZIndex = 600 }, host)
     Library:RegisterTheme(fill, "BackgroundColor3", "PanelFill")
-
     local btn = new_instance("TextButton", {
         Name = "ToggleBtn",
         Text = "◻ Resize",
         TextColor3 = Library.Theme.TextActive,
         BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 1),
+        Size = UDim2.fromScale(1,1),
         ZIndex = 601,
         AutoButtonColor = false,
         TextSize = 11,
@@ -2993,29 +2870,19 @@ function Library:CreateResizeToggle()
 
     btn.MouseButton1Click:Connect(function()
         Library.UIExpansion = not Library.UIExpansion
-        if Library._UpdateResizeVisibility then
-            Library._UpdateResizeVisibility()
-        end
+        if Library._UpdateResizeVisibility then Library._UpdateResizeVisibility() end
         updateButton()
     end)
 
     local dragging, start_pos, start_input = false, nil, nil
     btn.InputBegan:Connect(function(input)
-        if is_click(input) then
-            dragging = true
-            start_pos = host.Position
-            start_input = Vector2.new(input.Position.X, input.Position.Y)
-            close_all_popups()
-        end
+        if is_click(input) then dragging = true; start_pos = host.Position; start_input = Vector2.new(input.Position.X, input.Position.Y); close_all_popups() end
     end)
     UserInputService.InputChanged:Connect(function(input)
         if dragging and is_move(input) then
             local current = Vector2.new(input.Position.X, input.Position.Y)
             local delta = current - start_input
-            host.Position = UDim2.new(
-                start_pos.X.Scale, start_pos.X.Offset + delta.X,
-                start_pos.Y.Scale, start_pos.Y.Offset + delta.Y
-            )
+            host.Position = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
@@ -3025,7 +2892,7 @@ function Library:CreateResizeToggle()
     return host
 end
 
--- Create the resize toggle automatically when a window is created
+-- Auto-create resize toggle on window creation
 local originalWindow = Library.Window
 Library.Window = function(options)
     local win = originalWindow(options)
@@ -3037,6 +2904,17 @@ Library.Window = function(options)
 end
 
 -- -----------------------------------------------------------------
--- Return the library
+-- Unload
 -- -----------------------------------------------------------------
+function Library:Unload()
+    for _, conn in ipairs(self.Connections) do conn:Disconnect() end
+    if self.Holder then self.Holder:Destroy() end
+    if self.Extras then self.Extras:Destroy() end
+    table.clear(self)
+end
+
+-- Ensure Extras exists
+Library.Extras = new_instance("ScreenGui", { Name = "Extras", IgnoreGuiInset = true, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 1000 }, screen_gui)
+
+-- Return the library
 return Library
