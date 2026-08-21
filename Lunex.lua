@@ -2463,7 +2463,7 @@ function Library:CreateMobileToggle(on_toggle)
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
         Size = UDim2.fromOffset(135, 135),
-        Position = UDim2.new(0.5, -67.5, 0.5, -67.5),  -- center
+        Position = UDim2.new(1, -95, 0, 5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
         AutoButtonColor = false,
