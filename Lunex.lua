@@ -1189,8 +1189,6 @@ local function next_row(group, height)
     return row
 end
 
--- Standard controls
-
 function Library._GroupMethods:Checkbox(text, default, callback, extra, flag)
     extra = extra or {}
     local state = default and true or false
@@ -1924,9 +1922,6 @@ function Library._GroupMethods:Label(text)
     })
 end
 
--- ============================================================
--- NEW: DIVIDER
--- ============================================================
 function Library._GroupMethods:Divider()
     local row = next_row(self, 12)
     local line = new_instance("Frame", {
@@ -1940,9 +1935,6 @@ function Library._GroupMethods:Divider()
     return row
 end
 
--- ============================================================
--- NEW: TAB BOX (max 3 tabs)
--- ============================================================
 function Library._GroupMethods:TabBox(title, tabs)
     local group = self
     local tab_count = math.min(#tabs, 3)
@@ -1975,16 +1967,41 @@ function Library._GroupMethods:TabBox(title, tabs)
     }, inner)
     Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
 
+    local HEADER_H = 19
+    local header_frame = new_instance("Frame", {
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, HEADER_H),
+        ZIndex = 3,
+    }, fill)
+    vertical_gradient(header_frame, "HeaderTop", "HeaderBottom")
+
+    make_label(header_frame, title or "", "TextActive", {
+        Position = UDim2.fromOffset(6, 0),
+        Size = UDim2.new(1, -6, 1, 0),
+        ZIndex = 4,
+    })
+
+    local header_divider = new_instance("Frame", {
+        BackgroundColor3 = Library.Theme.InnerBorder,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, HEADER_H),
+        Size = UDim2.new(1, 0, 0, 1),
+        ZIndex = 4,
+    }, fill)
+    Library:RegisterTheme(header_divider, "BackgroundColor3", "InnerBorder")
+
     local tab_bar = new_instance("Frame", {
         BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(0, HEADER_H + 1),
         Size = UDim2.new(1, 0, 0, 16),
         ZIndex = 4,
     }, fill)
 
     local content_frame = new_instance("Frame", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, 16),
-        Size = UDim2.new(1, 0, 1, -16),
+        Position = UDim2.fromOffset(0, HEADER_H + 1 + 16),
+        Size = UDim2.new(1, 0, 1, -(HEADER_H + 1 + 16)),
         ClipsDescendants = true,
         ZIndex = 3,
     }, fill)
@@ -2090,8 +2107,8 @@ function Library._GroupMethods:TabBox(title, tabs)
             active_tab_index = i
             local content_h = tab_data.Layout.AbsoluteContentSize.Y
             local pad = tab_data.Padding
-            local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-            local desired_height = math.max(16 + 8, total_h) + 4
+            local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+            local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
             row.Size = UDim2.new(1, 0, 0, desired_height)
             if group._update_size then
                 task.defer(group._update_size)
@@ -2102,8 +2119,8 @@ function Library._GroupMethods:TabBox(title, tabs)
             if tab_data.Content.Visible then
                 local content_h = tab_data.Layout.AbsoluteContentSize.Y
                 local pad = tab_data.Padding
-                local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-                local desired_height = math.max(16 + 8, total_h) + 4
+                local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+                local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
                 row.Size = UDim2.new(1, 0, 0, desired_height)
                 if group._update_size then
                     task.defer(group._update_size)
@@ -2122,8 +2139,8 @@ function Library._GroupMethods:TabBox(title, tabs)
         local pad = tab_buttons[1].Padding
         task.wait()
         local content_h = layout.AbsoluteContentSize.Y
-        local total_h = 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-        local desired_height = math.max(16 + 8, total_h) + 4
+        local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
+        local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
         row.Size = UDim2.new(1, 0, 0, desired_height)
         if group._update_size then
             task.defer(group._update_size)
@@ -2133,9 +2150,6 @@ function Library._GroupMethods:TabBox(title, tabs)
     return row
 end
 
--- ============================================================
--- NEW: TOGGLE WITH KEYBIND
--- ============================================================
 function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
     local state = default_state and true or false
     local key = default_key or Enum.KeyCode.None
@@ -2277,9 +2291,6 @@ function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, c
     }
 end
 
--- ============================================================
--- COLOR PICKER (full implementation)
--- ============================================================
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
     local W = 150
@@ -2427,9 +2438,6 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     end
 end
 
--- ============================================================
--- BUILT-IN MANAGERS
--- ============================================================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
 
@@ -2663,9 +2671,6 @@ function Library:CreateUICustomization(tab, side)
     return group
 end
 
--- ============================================================
--- WATERMARK
--- ============================================================
 Library.WatermarkVisible = false
 Library.WatermarkOptions = {}
 Library._WatermarkHost = nil
@@ -2794,9 +2799,6 @@ function Library:_UpdateWatermark()
     Library._WatermarkHost = host
 end
 
--- ============================================================
--- MOBILE TOGGLE
--- ============================================================
 function Library:CreateMobileToggle(on_toggle)
     local logo_asset = nil
     local logo_url = "https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/refs/heads/main/BackgroundEraser_20260821_225640829.png"
@@ -2865,9 +2867,6 @@ function Library:CreateMobileToggle(on_toggle)
     return host
 end
 
--- ============================================================
--- CUSTOM CURSOR
--- ============================================================
 local function make_cursor()
     local S = 11
     local C = math.floor(S / 2)
@@ -2946,9 +2945,6 @@ local function set_cursor_enabled(on)
     end
 end
 
--- ============================================================
--- BIND TOGGLE
--- ============================================================
 function Library:BindToggle(window)
     local visible = true
     set_cursor_enabled(true)
