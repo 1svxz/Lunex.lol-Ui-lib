@@ -2614,7 +2614,7 @@ function Library:CreateMobileToggle(on_toggle)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -95, 0.5, 0),
-        Size = UDim2.fromOffset(55, 55),
+        Size = UDim2.fromOffset(35, 35),
         ClipsDescendants = false,
         ZIndex = 600,
     }, screen_gui)
