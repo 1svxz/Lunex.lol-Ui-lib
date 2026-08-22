@@ -2402,7 +2402,7 @@ function Library:CreateUICustomization(tab, side)
         Library:_UpdateWatermark()
     end, "_watermark_right_color")
 
-    group:Label("────────── Theme Colors ──────────")
+    group:Label("───── Theme Colors ─────")
 
     group:ColorPicker("Accent", Library.Theme.Accent, function(col)
         Library.Theme.Accent = col
