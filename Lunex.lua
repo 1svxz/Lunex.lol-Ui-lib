@@ -2478,7 +2478,6 @@ function Library:_UpdateWatermark()
     local rightColor = opts.rightColor or Library.Theme.Accent
     local leftText = opts.leftText or "Lunex UI"
     local rightText = opts.rightText or "v1.0"
-    local buildText = opts.buildText or "" .. os.date("%b %d %Y")
 
     if Library._WatermarkHost then
         Library._WatermarkHost:Destroy()
