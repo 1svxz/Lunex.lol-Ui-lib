@@ -2606,11 +2606,11 @@ function Library:CreateMobileToggle(on_toggle)
 
     local host = new_instance("Frame", {
         Name = "MobileToggle",
-        BackgroundTransparency = 1,
+        BackgroundTransparency = 0.8,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -95, 0.5, 0),
-        Size = UDim2.fromOffset(15, 15),
+        Size = UDim2.fromOffset(5, 5),
         ClipsDescendants = false,
         ZIndex = 600,
     }, screen_gui)
