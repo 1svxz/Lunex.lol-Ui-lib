@@ -1,88 +1,141 @@
--- ============================================================
--- LUNEX UI - MOBILE FRIENDLY (with inline color pickers)
--- ============================================================
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/refs/heads/main/Lunex.lua"))()
 
-local Lunex = loadstring(game:HttpGet("https://raw.githubusercontent.com/1svxz/Lunex.lol-Ui-lib/main/Lunex.lua"))()
+Library.Folder = "dork"
 
-local win = Lunex:Window({
-    Size = Vector2.new(380, 480),  -- even smaller for mobile
-    TitleLeft = "Cheat ",
-    TitleRight = "v1.0"
+local window = Library:Window({
+    TitleLeft = "Lunex",
+    TitleRight = "lib",
+    Size = Vector2.new(480, 530)
 })
 
--- ============================================================
--- TAB 1: AIM
--- ============================================================
-local aim = win:Tab("Aim")
+local aimTab = window:Tab("Aim Assist")
+local espTab = window:Tab("ESP")
+local configTab = window:Tab("Config")
 
-local aa = aim:Group("Aim Assist", "left")
-aa:CheckboxKeybind("Aim Assist", true, Enum.KeyCode.Q, nil, "aim_enabled")
-aa:TextBox("X Pred", "0.5", nil, "aim_x_pred")
-aa:TextBox("Y Pred", "0.3", nil, "aim_y_pred")
-aa:Combo("Target", {"Namecall","Index","Raycast"}, 1, nil, "aim_target")
-aa:Checkbox("Resolver", false, nil, nil, "aim_resolver")
+local aimLeft = aimTab:Group("Aim Assist", "left")
 
-local sa = aim:Group("Silent Aim", "right")
-sa:CheckboxKeybind("Silent Aim", false, Enum.KeyCode.E, nil, "silent_enabled")
-sa:TextBox("X Pred", "0.7", nil, "silent_x_pred")
-sa:TextBox("Y Pred", "0.4", nil, "silent_y_pred")
-sa:Combo("Target", {"Namecall","Index","Raycast"}, 1, nil, "silent_target")
-sa:Checkbox("Resolver", true, nil, nil, "silent_resolver")
+aimLeft:ToggleKeybind("Enable Aim Assist", true, Enum.KeyCode.R, function(state, key)
+    print("[Aim Assist] State:", state, "Key:", key)
+end, "aim_enabled")
 
--- ============================================================
--- TAB 2: ESP (toggle + color picker on each line!)
--- ============================================================
-local esp = win:Tab("ESP")
+aimLeft:Checkbox("Auto Air", false, function(v)
+    print("[Auto Air] Enabled:", v)
+end, nil, "auto_air")
 
-local espGroup = esp:Group("ESP", "left")
+aimLeft:TextBox("X Prediction", "0.1", function(str)
+    print("[X Prediction] Set:", str)
+end, "x_pred")
 
--- Each checkbox has a color swatch beside it
-espGroup:Checkbox("ESP Toggle", true, nil, nil, "esp_enabled")
+aimLeft:TextBox("Y Prediction", "0.2", function(str)
+    print("[Y Prediction] Set:", str)
+end, "y_pred")
 
-espGroup:Checkbox("Name ESP", true, nil, {
-    colors = {
-        {default = Color3.fromRGB(255,255,255), flag = "esp_name_color"}
-    }
-}, "esp_name")
+aimLeft:Slider("Smoothness", {min=0.1, max=1, default=0.5, decimals=2}, function(v)
+    print("[Smoothness] Value:", v)
+end, "smoothness")
 
-espGroup:Checkbox("Tracer ESP", true, nil, {
-    colors = {
-        {default = Color3.fromRGB(0,255,0), flag = "esp_tracer_color"}
-    }
-}, "esp_tracer")
+aimLeft:Divider()
 
-espGroup:Checkbox("Box ESP", false, nil, {
-    colors = {
-        {default = Color3.fromRGB(255,0,0), flag = "esp_box_color"}
-    }
-}, "esp_box")
+aimLeft:Combo("Hit Part", {"Head", "Torso", "HumanoidRootPart", "Random"}, 1, function(idx, val)
+    print("[Hit Part] Selected:", val)
+end, "hit_part")
 
-espGroup:Checkbox("Distance ESP", true, nil, {
-    colors = {
-        {default = Color3.fromRGB(255,255,0), flag = "esp_distance_color"}
-    }
-}, "esp_distance")
+aimLeft:MultiCombo("Checks", {"Wall Check", "Forcefield Check", "KO Check", "Friend Check"}, {true, false, true, false}, function(states)
+    local active = {}
+    for i, v in ipairs(states) do if v then table.insert(active, i) end end
+    print("[Checks] Active:", table.concat(active, ", "))
+end, "checks")
 
-espGroup:Checkbox("Health ESP", true, nil, {
-    colors = {
-        {default = Color3.fromRGB(0,255,0), flag = "esp_health_color"}
-    }
-}, "esp_health")
+aimLeft:Checkbox("Resolver", false, function(v)
+    print("[Resolver] Enabled:", v)
+end, nil, "resolver_enabled")
 
--- ============================================================
--- TAB 3: CONFIG
--- ============================================================
-local cfg = win:Tab("Config")
+aimLeft:Combo("Resolver Mode", {"Recalculate", "LookVector", "MoveDirection"}, 1, function(idx, val)
+    print("[Resolver Mode] Selected:", val)
+end, "resolver_mode")
 
-Lunex:CreateConfigManager(cfg, "left")
-Lunex:CreateThemeManager(cfg, "right")
-Lunex:CreateUICustomization(cfg, "left")  -- stacks under config
+local aimRight = aimTab:Group("Silent Aim", "right")
 
--- ============================================================
--- WATERMARK & TOGGLE
--- ============================================================
-Lunex:CreateWatermark({ leftText = "Cheat", rightText = "v1.0" })
-Lunex:BindToggle(win)
-Lunex:CheckAutoLoad()
+aimRight:ToggleKeybind("Enable Silent Aim", false, Enum.KeyCode.X, function(state, key)
+    print("[Silent Aim] State:", state, "Key:", key)
+end, "silent_enabled")
 
-print("✅ Mobile UI loaded – Press Insert to toggle")
+aimRight:Checkbox("Auto Air (Silent)", false, function(v)
+    print("[Silent Auto Air] Enabled:", v)
+end, nil, "silent_auto_air")
+
+aimRight:TextBox("X Prediction (Silent)", "0.1", function(str)
+    print("[Silent X Prediction] Set:", str)
+end, "silent_x_pred")
+
+aimRight:TextBox("Y Prediction (Silent)", "0.2", function(str)
+    print("[Silent Y Prediction] Set:", str)
+end, "silent_y_pred")
+
+aimRight:Slider("Smoothness (Silent)", {min=0.1, max=1, default=0.5, decimals=2}, function(v)
+    print("[Silent Smoothness] Value:", v)
+end, "silent_smoothness")
+
+aimRight:Divider()
+
+aimRight:Combo("Hit Part (Silent)", {"Head", "Torso", "HumanoidRootPart", "Random"}, 1, function(idx, val)
+    print("[Silent Hit Part] Selected:", val)
+end, "silent_hit_part")
+
+aimRight:MultiCombo("Checks (Silent)", {"Wall Check", "Forcefield Check", "KO Check", "Friend Check"}, {true, false, true, false}, function(states)
+    local active = {}
+    for i, v in ipairs(states) do if v then table.insert(active, i) end end
+    print("[Silent Checks] Active:", table.concat(active, ", "))
+end, "silent_checks")
+
+aimRight:Checkbox("Resolver (Silent)", false, function(v)
+    print("[Silent Resolver] Enabled:", v)
+end, nil, "silent_resolver_enabled")
+
+aimRight:Combo("Resolver Mode (Silent)", {"Recalculate", "LookVector", "MoveDirection"}, 1, function(idx, val)
+    print("[Silent Resolver Mode] Selected:", val)
+end, "silent_resolver_mode")
+
+local espGroup = espTab:Group("ESP", "left")
+
+espGroup:Checkbox("Box ESP", true, function(v)
+    print("[Box ESP] Enabled:", v)
+end, nil, "esp_box")
+
+espGroup:ColorPicker("Box Color", Color3.fromRGB(255, 255, 255), function(col)
+    print("[Box ESP] Color:", col)
+end, "esp_box_color")
+
+espGroup:Checkbox("Name ESP", true, function(v)
+    print("[Name ESP] Enabled:", v)
+end, nil, "esp_name")
+
+espGroup:ColorPicker("Name Color", Color3.fromRGB(255, 255, 255), function(col)
+    print("[Name ESP] Color:", col)
+end, "esp_name_color")
+
+espGroup:Checkbox("Distance ESP", true, function(v)
+    print("[Distance ESP] Enabled:", v)
+end, nil, "esp_distance")
+
+espGroup:ColorPicker("Distance Color", Color3.fromRGB(255, 255, 255), function(col)
+    print("[Distance ESP] Color:", col)
+end, "esp_distance_color")
+
+espGroup:Checkbox("Health Bar", true, function(v)
+    print("[Health Bar] Enabled:", v)
+end, nil, "esp_health")
+
+espGroup:ColorPicker("Health Color", Color3.fromRGB(0, 255, 0), function(col)
+    print("[Health Bar] Color:", col)
+end, "esp_health_color")
+
+Library:CreateConfigManager(configTab, "left")
+Library:CreateThemeManager(configTab, "right")
+Library:CreateUICustomization(configTab, "left")
+
+Library:BindToggle(window)
+Library:SetAutoLoad("dahood_config")
+Library:CheckAutoLoad()
+
+print("loaded dork lib Lunex lib")
