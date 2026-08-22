@@ -2610,7 +2610,7 @@ function Library:CreateMobileToggle(on_toggle)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -95, 0.5, 0),
-        Size = UDim2.fromOffset(5, 5),
+        Size = UDim2.fromOffset(40, 40),
         ClipsDescendants = false,
         ZIndex = 600,
     }, screen_gui)
@@ -2619,7 +2619,7 @@ function Library:CreateMobileToggle(on_toggle)
         Name = "ToggleBtn",
         Image = logo_asset or "rbxassetid://1234567890",
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(135, 135),
+        Size = UDim2.fromOffset(80, 80),
         Position = UDim2.new(0.5, -67.5, 0.5, -67.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 601,
