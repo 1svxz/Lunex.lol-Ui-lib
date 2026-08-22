@@ -6,19 +6,38 @@ local HttpService     = game:GetService("HttpService")
 local Players         = game:GetService("Players")
 local LocalPlayer     = Players.LocalPlayer
 
-local CONFIG_FOLDER   = "Lunex.lol"
-local CONFIGS_PATH    = CONFIG_FOLDER .. "/Configs"
-local THEMES_PATH     = CONFIG_FOLDER .. "/Themes"
+local Library = {}
+Library.Folder = "Lunex.lol"
+Library.Theme         = {}
+Library.Presets       = {}
+Library.Toggled       = true
+Library.ToggleKey     = Enum.KeyCode.Insert
+Library.Flags         = {}
+Library.Controls      = {}
+Library.Defaults      = {}
+Library.UIExpansion   = false
+
+Library.ThemeRegistry  = {}
+Library.ThemeCallbacks = {}
+Library.ThemePickers   = {}
+
+local function get_configs_path()
+    return Library.Folder .. "/Configs"
+end
+
+local function get_themes_path()
+    return Library.Folder .. "/Themes"
+end
 
 local function ensure_folders()
-    if makefolder and isfolder and not isfolder(CONFIG_FOLDER) then
-        pcall(makefolder, CONFIG_FOLDER)
+    if makefolder and isfolder and not isfolder(Library.Folder) then
+        pcall(makefolder, Library.Folder)
     end
-    if makefolder and isfolder and not isfolder(CONFIGS_PATH) then
-        pcall(makefolder, CONFIGS_PATH)
+    if makefolder and isfolder and not isfolder(get_configs_path()) then
+        pcall(makefolder, get_configs_path())
     end
-    if makefolder and isfolder and not isfolder(THEMES_PATH) then
-        pcall(makefolder, THEMES_PATH)
+    if makefolder and isfolder and not isfolder(get_themes_path()) then
+        pcall(makefolder, get_themes_path())
     end
 end
 
@@ -138,19 +157,8 @@ local FONT_BOLD = Enum.Font.SourceSansBold
 local FONT_SIZE = 13
 local STROKE_T  = 0.55
 
-local Library = {}
-Library.Theme         = deep_copy(PRESET_THEMES.Default)
-Library.Presets       = PRESET_THEMES
-Library.Toggled       = true
-Library.ToggleKey     = Enum.KeyCode.Insert
-Library.Flags         = {}
-Library.Controls      = {}
-Library.Defaults      = {}
-Library.UIExpansion   = false
-
-Library.ThemeRegistry  = {}
-Library.ThemeCallbacks = {}
-Library.ThemePickers   = {}
+Library.Theme = deep_copy(PRESET_THEMES.Default)
+Library.Presets = PRESET_THEMES
 
 function Library:RegisterTheme(inst, prop, key)
     if not inst then return end
@@ -433,12 +441,13 @@ end
 local function scan_config_files()
     local files = {}
     if not isfolder or not listfiles then return files end
-    if not isfolder(CONFIGS_PATH) then return files end
-    local ok, all = pcall(listfiles, CONFIGS_PATH)
+    local path = get_configs_path()
+    if not isfolder(path) then return files end
+    local ok, all = pcall(listfiles, path)
     if not ok then return files end
     for _, f in ipairs(all) do
         local name = f:match("([^\\/]+)%.json$")
-        if name and f:find(CONFIGS_PATH, 1, true) and name ~= "configs_list" then
+        if name and f:find(path, 1, true) and name ~= "configs_list" then
             table.insert(files, name)
         end
     end
@@ -449,8 +458,9 @@ end
 local function scan_theme_files()
     local files = {}
     if not isfolder or not listfiles then return files end
-    if not isfolder(THEMES_PATH) then return files end
-    local ok, all = pcall(listfiles, THEMES_PATH)
+    local path = get_themes_path()
+    if not isfolder(path) then return files end
+    local ok, all = pcall(listfiles, path)
     if not ok then return files end
     for _, f in ipairs(all) do
         local name = f:match("([^\\/]+)_theme%.json$")
@@ -466,7 +476,7 @@ function Library:SaveConfig(filename)
     if not writefile then return end
     ensure_folders()
     filename = filename or "default"
-    local path = CONFIGS_PATH .. "/" .. filename .. ".json"
+    local path = get_configs_path() .. "/" .. filename .. ".json"
     local data = {}
     for flag, val in pairs(self.Flags) do
         if type(val) == "table" and not val.__type then
@@ -483,7 +493,7 @@ end
 function Library:LoadConfig(filename)
     if not readfile or not isfile then return end
     filename = filename or "default"
-    local path = CONFIGS_PATH .. "/" .. filename .. ".json"
+    local path = get_configs_path() .. "/" .. filename .. ".json"
     if not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -509,7 +519,7 @@ end
 function Library:DeleteConfig(filename)
     if not delfile or not isfile then return end
     filename = filename or "default"
-    local path = CONFIGS_PATH .. "/" .. filename .. ".json"
+    local path = get_configs_path() .. "/" .. filename .. ".json"
     if isfile(path) then
         pcall(delfile, path)
     end
@@ -519,12 +529,12 @@ function Library:SetAutoLoad(filename)
     if not writefile then return end
     ensure_folders()
     filename = filename or "default"
-    pcall(writefile, CONFIGS_PATH .. "/autoload.json", HttpService:JSONEncode({autoload = filename}))
+    pcall(writefile, get_configs_path() .. "/autoload.json", HttpService:JSONEncode({autoload = filename}))
 end
 
 function Library:CheckAutoLoad()
     ensure_folders()
-    local path = CONFIGS_PATH .. "/autoload.json"
+    local path = get_configs_path() .. "/autoload.json"
     if not isfile or not readfile or not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -547,7 +557,7 @@ function Library:SaveTheme(theme_name)
     if not writefile then return end
     ensure_folders()
     theme_name = theme_name or "custom_theme"
-    local path = THEMES_PATH .. "/" .. theme_name .. "_theme.json"
+    local path = get_themes_path() .. "/" .. theme_name .. "_theme.json"
     local data = {}
     for k, v in pairs(self.Theme) do
         data[k] = serialize(v)
@@ -558,7 +568,7 @@ end
 function Library:LoadTheme(theme_name)
     if not readfile or not isfile then return end
     theme_name = theme_name or "custom_theme"
-    local path = THEMES_PATH .. "/" .. theme_name .. "_theme.json"
+    local path = get_themes_path() .. "/" .. theme_name .. "_theme.json"
     if not isfile(path) then return end
     local ok, content = pcall(readfile, path)
     if not ok then return end
@@ -574,7 +584,7 @@ end
 function Library:DeleteTheme(theme_name)
     if not delfile or not isfile then return end
     theme_name = theme_name or "custom_theme"
-    local path = THEMES_PATH .. "/" .. theme_name .. "_theme.json"
+    local path = get_themes_path() .. "/" .. theme_name .. "_theme.json"
     if isfile(path) then
         pcall(delfile, path)
     end
@@ -1935,300 +1945,6 @@ function Library._GroupMethods:Divider()
     return row
 end
 
--- ============================================================
--- NEW: TabBox (sub-section with tabs)
--- This replaces the previous implementation.
--- ============================================================
-function Library._TabMethods:TabBox(params)
-    local tab = self
-
-    -- Support both table param or (title, tabs) signature
-    local Cfg
-    if type(params) == "table" and not params.Names and not params.Count and not params.Sections then
-        -- likely {name = "...", content = ...} – we need to adapt
-        -- but we expect a table with Names and Count
-        Cfg = {
-            Names = params.Names or {},
-            Count = params.Count or 2,
-        }
-    elseif type(params) == "table" and params.Names then
-        Cfg = params
-    else
-        -- fallback
-        Cfg = { Names = {"Tab 1", "Tab 2"}, Count = 2 }
-    end
-
-    -- Ensure Count matches number of Names
-    if #Cfg.Names < Cfg.Count then
-        for i = #Cfg.Names + 1, Cfg.Count do
-            Cfg.Names[i] = "Tab " .. i
-        end
-    end
-
-    local Sections = {}
-    local Items = {}
-
-    -- Outer container
-    local container = new_instance("Frame", {
-        Name = "TabBox",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        ZIndex = 3,
-        ClipsDescendants = true,
-    }, tab.Page)
-    new_instance("UIPadding", {
-        PaddingTop = UDim.new(0, 1),
-    }, container)
-    new_instance("UIListLayout", {
-        Padding = UDim.new(0, 4),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, container)
-
-    -- Tab bar
-    local holder = new_instance("Frame", {
-        Name = "TabBar",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 22),
-        ZIndex = 3,
-    }, container)
-    -- Outline and inline strokes
-    local outline = new_instance("UIStroke", {
-        Color = Library.Theme.OuterBorder,
-        Thickness = 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-    }, holder)
-    Library:RegisterTheme(outline, "Color", "OuterBorder")
-    local inline = new_instance("UIStroke", {
-        Color = Library.Theme.InnerBorder,
-        Thickness = 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-    }, holder)
-    Library:RegisterTheme(inline, "Color", "InnerBorder")
-
-    local tab_layout = new_instance("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalFlex = Enum.UIFlexAlignment.Fill,
-        Padding = UDim.new(0, -2),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, holder)
-
-    -- Pages container
-    local pages = new_instance("Frame", {
-        BackgroundTransparency = 0,
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        Size = UDim2.new(1, 0, 0, 160),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        ZIndex = 3,
-    }, container)
-    -- Gradient
-    local page_grad = new_instance("UIGradient", {
-        Rotation = -90,
-    }, pages)
-    Library:RegisterThemeCallback(function()
-        page_grad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Library.Theme.TabTop),
-            ColorSequenceKeypoint.new(1, Library.Theme.TabBottom),
-        })
-    end)
-    -- Strokes
-    local page_outline = new_instance("UIStroke", {
-        Color = Library.Theme.OuterBorder,
-        Thickness = 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-    }, pages)
-    Library:RegisterTheme(page_outline, "Color", "OuterBorder")
-    local page_inline = new_instance("UIStroke", {
-        Color = Library.Theme.InnerBorder,
-        Thickness = 1,
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-    }, pages)
-    Library:RegisterTheme(page_inline, "Color", "InnerBorder")
-
-    local page_padding = new_instance("UIPadding", {
-        PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8),
-        PaddingTop = UDim.new(0, 8),
-        PaddingBottom = UDim.new(0, 8),
-    }, pages)
-
-    local page_layout = new_instance("UIListLayout", {
-        FillDirection = Enum.FillDirection.Vertical,
-        Padding = UDim.new(0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, pages)
-
-    -- Create each tab
-    for i = 1, Cfg.Count do
-        local name = Cfg.Names[i] or "Tab " .. i
-
-        -- Tab button
-        local btn = new_instance("TextButton", {
-            Text = "",
-            AutoButtonColor = false,
-            BackgroundTransparency = 0,
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            Size = UDim2.new(1, 0, 1, 0),
-            ZIndex = 1,
-        }, holder)
-        local btn_grad = new_instance("UIGradient", {
-            Rotation = -90,
-        }, btn)
-        Library:RegisterThemeCallback(function()
-            btn_grad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Library.Theme.TabTop),
-                ColorSequenceKeypoint.new(1, Library.Theme.TabBottom),
-            })
-        end)
-        local btn_inline = new_instance("UIStroke", {
-            Color = Library.Theme.InnerBorder,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-        }, btn)
-        Library:RegisterTheme(btn_inline, "Color", "InnerBorder")
-
-        local label = make_label(btn, name, "TextInactive", {
-            Size = UDim2.new(1, 0, 1, 0),
-            Position = UDim2.new(0.5, -1, 0.5, 0),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 2,
-            TextSize = 12,
-        })
-
-        local accent = new_instance("Frame", {
-            BackgroundColor3 = Library.Theme.Accent,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 0, 2),
-            Visible = false,
-            ZIndex = 2,
-        }, btn)
-        Library:RegisterTheme(accent, "BackgroundColor3", "Accent")
-
-        -- Page content container
-        local page = new_instance("Frame", {
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            Visible = false,
-            ZIndex = 3,
-            ClipsDescendants = false,
-        }, pages)
-
-        local page_container = new_instance("Frame", {
-            BackgroundTransparency = 0,
-            BackgroundColor3 = Library.Theme.ChildFill,
-            Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            ZIndex = 3,
-        }, page)
-        Library:RegisterTheme(page_container, "BackgroundColor3", "ChildFill")
-
-        -- Outline for container (optional)
-        new_instance("UIStroke", {
-            Color = Library.Theme.OuterBorder,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        }, page_container)
-        new_instance("UIStroke", {
-            Color = Library.Theme.InnerBorder,
-            Thickness = 1,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            BorderStrokePosition = Enum.BorderStrokePosition.Inner,
-        }, page_container)
-
-        local container_padding = new_instance("UIPadding", {
-            PaddingLeft = UDim.new(0, 7),
-            PaddingRight = UDim.new(0, 7),
-            PaddingTop = UDim.new(0, 7),
-            PaddingBottom = UDim.new(0, 7),
-        }, page_container)
-        local container_layout = new_instance("UIListLayout", {
-            FillDirection = Enum.FillDirection.Vertical,
-            Padding = UDim.new(0, 6),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-        }, page_container)
-
-        -- Store data
-        local section = {
-            Name = name,
-            Button = btn,
-            Label = label,
-            Accent = accent,
-            Page = page,
-            Container = page_container,
-            Layout = container_layout,
-            Padding = container_padding,
-            btn_grad = btn_grad,
-        }
-
-        -- Hide function
-        function section:Hide()
-            self.Page.Visible = false
-            self.Accent.Visible = false
-            self.btn_grad.Rotation = -90
-            tween(self.Label, 0.12, { TextColor3 = Library.Theme.TabInactive })
-        end
-
-        -- Show function
-        function section:Show()
-            for _, sec in ipairs(Sections) do
-                if sec ~= self then
-                    sec:Hide()
-                end
-            end
-            self.Page.Visible = true
-            self.Accent.Visible = true
-            self.btn_grad.Rotation = 90
-            tween(self.Label, 0.12, { TextColor3 = Library.Theme.Accent })
-        end
-
-        -- Button click
-        btn.MouseButton1Click:Connect(function()
-            section:Show()
-        end)
-
-        -- Hover effects
-        btn.MouseEnter:Connect(function()
-            tween(label, 0.12, { TextColor3 = Library.Theme.Accent })
-        end)
-        btn.MouseLeave:Connect(function()
-            if not page.Visible then
-                tween(label, 0.12, { TextColor3 = Library.Theme.TabInactive })
-            end
-        end)
-
-        table.insert(Sections, section)
-
-        -- First tab active
-        if i == 1 then
-            section:Show()
-        end
-    end
-
-    -- Return sections as a table with methods, or unpack them
-    -- For convenience, we'll return the sections array so user can index by number.
-    -- But also we can add a method to get a section by name.
-    local result = {}
-    for i, sec in ipairs(Sections) do
-        result[i] = sec
-        -- Also allow by name
-        result[sec.Name] = sec
-    end
-
-    -- Return the sections so they can be used like:
-    -- local pred, hitbox, antiaim = tab:TabBox({Names = {"Pred", "Hit", "Anti"}, Count = 3})
-    -- pred:Checkbox(...)
-    return unpack(Sections)
-end
-
--- ============================================================
--- ToggleKeybind (Checkbox + Keybind combined)
--- ============================================================
 function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
     local state = default_state and true or false
     local key = default_key or Enum.KeyCode.None
@@ -2370,9 +2086,6 @@ function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, c
     }
 end
 
--- ============================================================
--- COLOR PICKER
--- ============================================================
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
     local W = 150
@@ -2520,9 +2233,6 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     end
 end
 
--- ============================================================
--- BUILT-IN MANAGERS
--- ============================================================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
 
