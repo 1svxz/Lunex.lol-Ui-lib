@@ -1935,18 +1935,23 @@ function Library._GroupMethods:Divider()
     return row
 end
 
-function Library._GroupMethods:TabBox(title, tabs)
-    local group = self
+-- ============================================================
+-- NEW: TAB BOX (standalone group box with tabs)
+-- Use: tab:TabBox(title, tabs)
+-- ============================================================
+function Library._TabMethods:TabBox(title, tabs)
+    local tab = self
     local tab_count = math.min(#tabs, 3)
 
-    local row = next_row(group, 30 + 16 * tab_count)
-
     local outer = new_instance("Frame", {
+        Name = title,
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 3,
-    }, row)
+        ClipsDescendants = true,
+    }, tab.Page)
     Library:RegisterTheme(outer, "BackgroundColor3", "OuterBorder")
 
     local inner = new_instance("Frame", {
@@ -1954,6 +1959,7 @@ function Library._GroupMethods:TabBox(title, tabs)
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(1, 1),
         Size = UDim2.new(1, -2, 1, -2),
+        AutomaticSize = Enum.AutomaticSize.Y,
         ZIndex = 3,
     }, outer)
     Library:RegisterTheme(inner, "BackgroundColor3", "InnerBorder")
@@ -1963,10 +1969,18 @@ function Library._GroupMethods:TabBox(title, tabs)
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(2, 2),
         Size = UDim2.new(1, -4, 1, -4),
+        AutomaticSize = Enum.AutomaticSize.Y,
         ZIndex = 3,
     }, inner)
     Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
 
+    local fill_layout = new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 0),
+    }, fill)
+
+    -- Header
     local HEADER_H = 19
     local header_frame = new_instance("Frame", {
         BackgroundColor3 = Color3.new(1, 1, 1),
@@ -1975,7 +1989,6 @@ function Library._GroupMethods:TabBox(title, tabs)
         ZIndex = 3,
     }, fill)
     vertical_gradient(header_frame, "HeaderTop", "HeaderBottom")
-
     make_label(header_frame, title or "", "TextActive", {
         Position = UDim2.fromOffset(6, 0),
         Size = UDim2.new(1, -6, 1, 0),
@@ -1985,26 +1998,38 @@ function Library._GroupMethods:TabBox(title, tabs)
     local header_divider = new_instance("Frame", {
         BackgroundColor3 = Library.Theme.InnerBorder,
         BorderSizePixel = 0,
-        Position = UDim2.fromOffset(0, HEADER_H),
         Size = UDim2.new(1, 0, 0, 1),
         ZIndex = 4,
     }, fill)
     Library:RegisterTheme(header_divider, "BackgroundColor3", "InnerBorder")
 
+    -- Tab bar
     local tab_bar = new_instance("Frame", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, HEADER_H + 1),
         Size = UDim2.new(1, 0, 0, 16),
         ZIndex = 4,
     }, fill)
 
+    -- Content area
     local content_frame = new_instance("Frame", {
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(0, HEADER_H + 1 + 16),
-        Size = UDim2.new(1, 0, 1, -(HEADER_H + 1 + 16)),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2.new(1, 0, 0, 0),
         ClipsDescendants = true,
         ZIndex = 3,
     }, fill)
+
+    local content_padding = new_instance("UIPadding", {
+        PaddingLeft = UDim.new(0, 4),
+        PaddingTop = UDim.new(0, 4),
+        PaddingRight = UDim.new(0, 4),
+        PaddingBottom = UDim.new(0, 4),
+    }, content_frame)
+    local content_layout = new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 4),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, content_frame)
 
     local tab_buttons = {}
     local active_tab_index = 1
@@ -2064,22 +2089,11 @@ function Library._GroupMethods:TabBox(title, tabs)
             Name = tab_info.name,
             BackgroundTransparency = 1,
             Visible = (i == 1),
-            Size = UDim2.fromScale(1, 1),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            Size = UDim2.new(1, 0, 0, 0),
             ZIndex = 3,
             ClipsDescendants = false,
         }, content_frame)
-
-        local padding = new_instance("UIPadding", {
-            PaddingLeft = UDim.new(0, 4),
-            PaddingTop = UDim.new(0, 4),
-            PaddingRight = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
-        }, tab_content)
-        local layout = new_instance("UIListLayout", {
-            FillDirection = Enum.FillDirection.Vertical,
-            Padding = UDim.new(0, 4),
-            SortOrder = Enum.SortOrder.LayoutOrder,
-        }, tab_content)
 
         if tab_info.content then
             tab_info.content(tab_content)
@@ -2093,8 +2107,6 @@ function Library._GroupMethods:TabBox(title, tabs)
             Fill = t_fill,
             Grad = grad,
             Content = tab_content,
-            Layout = layout,
-            Padding = padding,
         }
         tab_buttons[i] = tab_data
 
@@ -2105,49 +2117,15 @@ function Library._GroupMethods:TabBox(title, tabs)
             tab_data.Content.Visible = true
             tab_data.Label.TextColor3 = Library.Theme.Accent
             active_tab_index = i
-            local content_h = tab_data.Layout.AbsoluteContentSize.Y
-            local pad = tab_data.Padding
-            local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-            local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
-            row.Size = UDim2.new(1, 0, 0, desired_height)
-            if group._update_size then
-                task.defer(group._update_size)
-            end
         end)
-
-        local function update_tab_size()
-            if tab_data.Content.Visible then
-                local content_h = tab_data.Layout.AbsoluteContentSize.Y
-                local pad = tab_data.Padding
-                local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-                local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
-                row.Size = UDim2.new(1, 0, 0, desired_height)
-                if group._update_size then
-                    task.defer(group._update_size)
-                end
-            end
-        end
-        tab_data.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update_tab_size)
-        tab_data.Content.ChildAdded:Connect(function() task.defer(update_tab_size) end)
-        tab_data.Content.ChildRemoved:Connect(function() task.defer(update_tab_size) end)
     end
 
     if #tab_buttons > 0 then
         tab_buttons[1].Label.TextColor3 = Library.Theme.Accent
         tab_buttons[1].Content.Visible = true
-        local layout = tab_buttons[1].Layout
-        local pad = tab_buttons[1].Padding
-        task.wait()
-        local content_h = layout.AbsoluteContentSize.Y
-        local total_h = HEADER_H + 1 + 16 + pad.PaddingTop.Offset + pad.PaddingBottom.Offset + content_h
-        local desired_height = math.max(HEADER_H + 1 + 16 + 8, total_h) + 4
-        row.Size = UDim2.new(1, 0, 0, desired_height)
-        if group._update_size then
-            task.defer(group._update_size)
-        end
     end
 
-    return row
+    return outer
 end
 
 function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
