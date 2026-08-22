@@ -1479,7 +1479,6 @@ function Library._GroupMethods:Slider(text, options, callback, flag)
     return ctrl
 end
 
--- FIXED Keybind (standalone)
 function Library._GroupMethods:Keybind(text, default, callback, flag)
     local row = next_row(self, 14)
     make_label(row, text, "TextInactive", {
@@ -1946,7 +1945,6 @@ function Library._GroupMethods:Divider()
     return row
 end
 
--- FIXED ToggleKeybind (checkbox + keybind)
 function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
     local state = default_state and true or false
     local key = default_key or Enum.KeyCode.None
@@ -1958,7 +1956,7 @@ function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, c
         AutoButtonColor = false,
         BackgroundTransparency = 1,
         Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.fromOffset(0, 11), -- centered
+        Position = UDim2.fromOffset(0, 11),
         ZIndex = 3,
     }, row)
     local _, fill = framed_box(btn, "OuterBorder", "InnerBorder", "ChildFill", { ZIndex = 3 })
@@ -1982,7 +1980,7 @@ function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, c
         AutoButtonColor = false,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, 0, 0, 11), -- centered
+        Position = UDim2.new(1, 0, 0, 11),
         Size = UDim2.fromOffset(60, 12),
         ZIndex = 4,
     }, row)
@@ -2490,7 +2488,6 @@ function Library:_UpdateWatermark()
     local parts = {
         {t = leftText,  color = leftColor},
         {t = rightText, color = rightColor},
-        {t = buildText, color = Color3.fromRGB(100, 100, 100)},
     }
     local total = PAD * 2
     for i, p in ipairs(parts) do
