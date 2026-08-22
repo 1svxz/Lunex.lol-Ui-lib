@@ -1938,6 +1938,7 @@ end
 -- ============================================================
 -- NEW: TAB BOX (standalone group box with tabs)
 -- Use: tab:TabBox(title, tabs)
+-- Auto‑sizes height based on active tab content.
 -- ============================================================
 function Library._TabMethods:TabBox(title, tabs)
     local tab = self
@@ -1947,7 +1948,6 @@ function Library._TabMethods:TabBox(title, tabs)
         Name = title,
         BackgroundColor3 = Library.Theme.OuterBorder,
         BorderSizePixel = 0,
-        AutomaticSize = Enum.AutomaticSize.Y,
         Size = UDim2.new(1, 0, 0, 0),
         ZIndex = 3,
         ClipsDescendants = true,
@@ -1959,7 +1959,6 @@ function Library._TabMethods:TabBox(title, tabs)
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(1, 1),
         Size = UDim2.new(1, -2, 1, -2),
-        AutomaticSize = Enum.AutomaticSize.Y,
         ZIndex = 3,
     }, outer)
     Library:RegisterTheme(inner, "BackgroundColor3", "InnerBorder")
@@ -1969,7 +1968,6 @@ function Library._TabMethods:TabBox(title, tabs)
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(2, 2),
         Size = UDim2.new(1, -4, 1, -4),
-        AutomaticSize = Enum.AutomaticSize.Y,
         ZIndex = 3,
     }, inner)
     Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
@@ -2013,9 +2011,8 @@ function Library._TabMethods:TabBox(title, tabs)
     -- Content area
     local content_frame = new_instance("Frame", {
         BackgroundTransparency = 1,
-        AutomaticSize = Enum.AutomaticSize.Y,
         Size = UDim2.new(1, 0, 0, 0),
-        ClipsDescendants = true,
+        ClipsDescendants = false,
         ZIndex = 3,
     }, fill)
 
@@ -2089,7 +2086,6 @@ function Library._TabMethods:TabBox(title, tabs)
             Name = tab_info.name,
             BackgroundTransparency = 1,
             Visible = (i == 1),
-            AutomaticSize = Enum.AutomaticSize.Y,
             Size = UDim2.new(1, 0, 0, 0),
             ZIndex = 3,
             ClipsDescendants = false,
@@ -2117,12 +2113,30 @@ function Library._TabMethods:TabBox(title, tabs)
             tab_data.Content.Visible = true
             tab_data.Label.TextColor3 = Library.Theme.Accent
             active_tab_index = i
+            update_height()
         end)
+    end
+
+    local function update_height()
+        task.wait() -- let layout update
+        local content_height = content_layout.AbsoluteContentSize.Y + content_padding.PaddingTop.Offset + content_padding.PaddingBottom.Offset
+        local total_height = HEADER_H + 1 + 16 + content_height + 4 -- header + divider + tab bar + content + padding
+        outer.Size = UDim2.new(1, 0, 0, math.max(total_height, 16 + 8 + 4))
     end
 
     if #tab_buttons > 0 then
         tab_buttons[1].Label.TextColor3 = Library.Theme.Accent
         tab_buttons[1].Content.Visible = true
+        update_height()
+    end
+
+    for _, tab_data in ipairs(tab_buttons) do
+        tab_data.Content.ChildAdded:Connect(function()
+            task.defer(update_height)
+        end)
+        tab_data.Content.ChildRemoved:Connect(function()
+            task.defer(update_height)
+        end)
     end
 
     return outer
