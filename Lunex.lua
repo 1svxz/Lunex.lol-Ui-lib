@@ -1936,212 +1936,299 @@ function Library._GroupMethods:Divider()
 end
 
 -- ============================================================
--- NEW: TAB BOX (standalone group box with tabs)
--- Use: tab:TabBox(title, tabs)
--- Auto‑sizes height based on active tab content.
+-- NEW: TabBox (sub-section with tabs)
+-- This replaces the previous implementation.
 -- ============================================================
-function Library._TabMethods:TabBox(title, tabs)
+function Library._TabMethods:TabBox(params)
     local tab = self
-    local tab_count = math.min(#tabs, 3)
 
-    local outer = new_instance("Frame", {
-        Name = title,
-        BackgroundColor3 = Library.Theme.OuterBorder,
-        BorderSizePixel = 0,
+    -- Support both table param or (title, tabs) signature
+    local Cfg
+    if type(params) == "table" and not params.Names and not params.Count and not params.Sections then
+        -- likely {name = "...", content = ...} – we need to adapt
+        -- but we expect a table with Names and Count
+        Cfg = {
+            Names = params.Names or {},
+            Count = params.Count or 2,
+        }
+    elseif type(params) == "table" and params.Names then
+        Cfg = params
+    else
+        -- fallback
+        Cfg = { Names = {"Tab 1", "Tab 2"}, Count = 2 }
+    end
+
+    -- Ensure Count matches number of Names
+    if #Cfg.Names < Cfg.Count then
+        for i = #Cfg.Names + 1, Cfg.Count do
+            Cfg.Names[i] = "Tab " .. i
+        end
+    end
+
+    local Sections = {}
+    local Items = {}
+
+    -- Outer container
+    local container = new_instance("Frame", {
+        Name = "TabBox",
+        BackgroundTransparency = 1,
         Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
         ZIndex = 3,
         ClipsDescendants = true,
     }, tab.Page)
-    Library:RegisterTheme(outer, "BackgroundColor3", "OuterBorder")
-
-    local inner = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        ZIndex = 3,
-    }, outer)
-    Library:RegisterTheme(inner, "BackgroundColor3", "InnerBorder")
-
-    local fill = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.ChildFill,
-        BorderSizePixel = 0,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 1, -4),
-        ZIndex = 3,
-    }, inner)
-    Library:RegisterTheme(fill, "BackgroundColor3", "ChildFill")
-
-    local fill_layout = new_instance("UIListLayout", {
-        FillDirection = Enum.FillDirection.Vertical,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 0),
-    }, fill)
-
-    -- Header
-    local HEADER_H = 19
-    local header_frame = new_instance("Frame", {
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, HEADER_H),
-        ZIndex = 3,
-    }, fill)
-    vertical_gradient(header_frame, "HeaderTop", "HeaderBottom")
-    make_label(header_frame, title or "", "TextActive", {
-        Position = UDim2.fromOffset(6, 0),
-        Size = UDim2.new(1, -6, 1, 0),
-        ZIndex = 4,
-    })
-
-    local header_divider = new_instance("Frame", {
-        BackgroundColor3 = Library.Theme.InnerBorder,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 1),
-        ZIndex = 4,
-    }, fill)
-    Library:RegisterTheme(header_divider, "BackgroundColor3", "InnerBorder")
-
-    -- Tab bar
-    local tab_bar = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 16),
-        ZIndex = 4,
-    }, fill)
-
-    -- Content area
-    local content_frame = new_instance("Frame", {
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 0),
-        ClipsDescendants = false,
-        ZIndex = 3,
-    }, fill)
-
-    local content_padding = new_instance("UIPadding", {
-        PaddingLeft = UDim.new(0, 4),
-        PaddingTop = UDim.new(0, 4),
-        PaddingRight = UDim.new(0, 4),
-        PaddingBottom = UDim.new(0, 4),
-    }, content_frame)
-    local content_layout = new_instance("UIListLayout", {
-        FillDirection = Enum.FillDirection.Vertical,
+    new_instance("UIPadding", {
+        PaddingTop = UDim.new(0, 1),
+    }, container)
+    new_instance("UIListLayout", {
         Padding = UDim.new(0, 4),
         SortOrder = Enum.SortOrder.LayoutOrder,
-    }, content_frame)
+    }, container)
 
-    local tab_buttons = {}
-    local active_tab_index = 1
-    local tab_width = 1 / tab_count
+    -- Tab bar
+    local holder = new_instance("Frame", {
+        Name = "TabBar",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 22),
+        ZIndex = 3,
+    }, container)
+    -- Outline and inline strokes
+    local outline = new_instance("UIStroke", {
+        Color = Library.Theme.OuterBorder,
+        Thickness = 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    }, holder)
+    Library:RegisterTheme(outline, "Color", "OuterBorder")
+    local inline = new_instance("UIStroke", {
+        Color = Library.Theme.InnerBorder,
+        Thickness = 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+    }, holder)
+    Library:RegisterTheme(inline, "Color", "InnerBorder")
 
-    for i, tab_info in ipairs(tabs) do
+    local tab_layout = new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalFlex = Enum.UIFlexAlignment.Fill,
+        Padding = UDim.new(0, -2),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, holder)
+
+    -- Pages container
+    local pages = new_instance("Frame", {
+        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        Size = UDim2.new(1, 0, 0, 160),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        ZIndex = 3,
+    }, container)
+    -- Gradient
+    local page_grad = new_instance("UIGradient", {
+        Rotation = -90,
+    }, pages)
+    Library:RegisterThemeCallback(function()
+        page_grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Library.Theme.TabTop),
+            ColorSequenceKeypoint.new(1, Library.Theme.TabBottom),
+        })
+    end)
+    -- Strokes
+    local page_outline = new_instance("UIStroke", {
+        Color = Library.Theme.OuterBorder,
+        Thickness = 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+    }, pages)
+    Library:RegisterTheme(page_outline, "Color", "OuterBorder")
+    local page_inline = new_instance("UIStroke", {
+        Color = Library.Theme.InnerBorder,
+        Thickness = 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+    }, pages)
+    Library:RegisterTheme(page_inline, "Color", "InnerBorder")
+
+    local page_padding = new_instance("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        PaddingTop = UDim.new(0, 8),
+        PaddingBottom = UDim.new(0, 8),
+    }, pages)
+
+    local page_layout = new_instance("UIListLayout", {
+        FillDirection = Enum.FillDirection.Vertical,
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, pages)
+
+    -- Create each tab
+    for i = 1, Cfg.Count do
+        local name = Cfg.Names[i] or "Tab " .. i
+
+        -- Tab button
         local btn = new_instance("TextButton", {
-            Name = tab_info.name,
             Text = "",
             AutoButtonColor = false,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(tab_width, -1, 1, 0),
-            Position = UDim2.new((i-1)/tab_count, 0, 0, 0),
-            ZIndex = 5,
-        }, tab_bar)
-
-        local t_outer = new_instance("Frame", {
-            BackgroundColor3 = Library.Theme.ContentOuter,
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            ZIndex = 4,
-        }, btn)
-        Library:RegisterTheme(t_outer, "BackgroundColor3", "ContentOuter")
-
-        local t_inner = new_instance("Frame", {
-            BackgroundColor3 = Library.Theme.ContentInner,
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            ZIndex = 4,
-        }, t_outer)
-        Library:RegisterTheme(t_inner, "BackgroundColor3", "ContentInner")
-
-        local t_fill = new_instance("Frame", {
+            BackgroundTransparency = 0,
             BackgroundColor3 = Color3.new(1, 1, 1),
-            BorderSizePixel = 0,
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 1, -4),
-            ZIndex = 4,
-        }, t_outer)
-        local grad = new_instance("UIGradient", { Rotation = 90 }, t_fill)
+            Size = UDim2.new(1, 0, 1, 0),
+            ZIndex = 1,
+        }, holder)
+        local btn_grad = new_instance("UIGradient", {
+            Rotation = -90,
+        }, btn)
         Library:RegisterThemeCallback(function()
-            grad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, Library.Theme.TabTop),
-                ColorSequenceKeypoint.new(0.50, Library.Theme.TabMid),
-                ColorSequenceKeypoint.new(1.00, Library.Theme.TabBottom),
+            btn_grad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Theme.TabTop),
+                ColorSequenceKeypoint.new(1, Library.Theme.TabBottom),
             })
         end)
+        local btn_inline = new_instance("UIStroke", {
+            Color = Library.Theme.InnerBorder,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+        }, btn)
+        Library:RegisterTheme(btn_inline, "Color", "InnerBorder")
 
-        local label = make_label(btn, tab_info.name, "TabInactive", {
-            Size = UDim2.fromScale(1, 1),
+        local label = make_label(btn, name, "TextInactive", {
+            Size = UDim2.new(1, 0, 1, 0),
+            Position = UDim2.new(0.5, -1, 0.5, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
             TextXAlignment = Enum.TextXAlignment.Center,
-            ZIndex = 6,
+            ZIndex = 2,
+            TextSize = 12,
         })
 
-        local tab_content = new_instance("Frame", {
-            Name = tab_info.name,
+        local accent = new_instance("Frame", {
+            BackgroundColor3 = Library.Theme.Accent,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 0, 2),
+            Visible = false,
+            ZIndex = 2,
+        }, btn)
+        Library:RegisterTheme(accent, "BackgroundColor3", "Accent")
+
+        -- Page content container
+        local page = new_instance("Frame", {
             BackgroundTransparency = 1,
-            Visible = (i == 1),
             Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            Visible = false,
             ZIndex = 3,
             ClipsDescendants = false,
-        }, content_frame)
+        }, pages)
 
-        if tab_info.content then
-            tab_info.content(tab_content)
-        end
+        local page_container = new_instance("Frame", {
+            BackgroundTransparency = 0,
+            BackgroundColor3 = Library.Theme.ChildFill,
+            Size = UDim2.new(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            ZIndex = 3,
+        }, page)
+        Library:RegisterTheme(page_container, "BackgroundColor3", "ChildFill")
 
-        local tab_data = {
+        -- Outline for container (optional)
+        new_instance("UIStroke", {
+            Color = Library.Theme.OuterBorder,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        }, page_container)
+        new_instance("UIStroke", {
+            Color = Library.Theme.InnerBorder,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            BorderStrokePosition = Enum.BorderStrokePosition.Inner,
+        }, page_container)
+
+        local container_padding = new_instance("UIPadding", {
+            PaddingLeft = UDim.new(0, 7),
+            PaddingRight = UDim.new(0, 7),
+            PaddingTop = UDim.new(0, 7),
+            PaddingBottom = UDim.new(0, 7),
+        }, page_container)
+        local container_layout = new_instance("UIListLayout", {
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 6),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        }, page_container)
+
+        -- Store data
+        local section = {
+            Name = name,
             Button = btn,
             Label = label,
-            Outer = t_outer,
-            Inner = t_inner,
-            Fill = t_fill,
-            Grad = grad,
-            Content = tab_content,
+            Accent = accent,
+            Page = page,
+            Container = page_container,
+            Layout = container_layout,
+            Padding = container_padding,
+            btn_grad = btn_grad,
         }
-        tab_buttons[i] = tab_data
 
+        -- Hide function
+        function section:Hide()
+            self.Page.Visible = false
+            self.Accent.Visible = false
+            self.btn_grad.Rotation = -90
+            tween(self.Label, 0.12, { TextColor3 = Library.Theme.TabInactive })
+        end
+
+        -- Show function
+        function section:Show()
+            for _, sec in ipairs(Sections) do
+                if sec ~= self then
+                    sec:Hide()
+                end
+            end
+            self.Page.Visible = true
+            self.Accent.Visible = true
+            self.btn_grad.Rotation = 90
+            tween(self.Label, 0.12, { TextColor3 = Library.Theme.Accent })
+        end
+
+        -- Button click
         btn.MouseButton1Click:Connect(function()
-            if active_tab_index == i then return end
-            tab_buttons[active_tab_index].Content.Visible = false
-            tab_buttons[active_tab_index].Label.TextColor3 = Library.Theme.TabInactive
-            tab_data.Content.Visible = true
-            tab_data.Label.TextColor3 = Library.Theme.Accent
-            active_tab_index = i
-            update_height()
+            section:Show()
         end)
-    end
 
-    local function update_height()
-        task.wait() -- let layout update
-        local content_height = content_layout.AbsoluteContentSize.Y + content_padding.PaddingTop.Offset + content_padding.PaddingBottom.Offset
-        local total_height = HEADER_H + 1 + 16 + content_height + 4 -- header + divider + tab bar + content + padding
-        outer.Size = UDim2.new(1, 0, 0, math.max(total_height, 16 + 8 + 4))
-    end
-
-    if #tab_buttons > 0 then
-        tab_buttons[1].Label.TextColor3 = Library.Theme.Accent
-        tab_buttons[1].Content.Visible = true
-        update_height()
-    end
-
-    for _, tab_data in ipairs(tab_buttons) do
-        tab_data.Content.ChildAdded:Connect(function()
-            task.defer(update_height)
+        -- Hover effects
+        btn.MouseEnter:Connect(function()
+            tween(label, 0.12, { TextColor3 = Library.Theme.Accent })
         end)
-        tab_data.Content.ChildRemoved:Connect(function()
-            task.defer(update_height)
+        btn.MouseLeave:Connect(function()
+            if not page.Visible then
+                tween(label, 0.12, { TextColor3 = Library.Theme.TabInactive })
+            end
         end)
+
+        table.insert(Sections, section)
+
+        -- First tab active
+        if i == 1 then
+            section:Show()
+        end
     end
 
-    return outer
+    -- Return sections as a table with methods, or unpack them
+    -- For convenience, we'll return the sections array so user can index by number.
+    -- But also we can add a method to get a section by name.
+    local result = {}
+    for i, sec in ipairs(Sections) do
+        result[i] = sec
+        -- Also allow by name
+        result[sec.Name] = sec
+    end
+
+    -- Return the sections so they can be used like:
+    -- local pred, hitbox, antiaim = tab:TabBox({Names = {"Pred", "Hit", "Anti"}, Count = 3})
+    -- pred:Checkbox(...)
+    return unpack(Sections)
 end
 
+-- ============================================================
+-- ToggleKeybind (Checkbox + Keybind combined)
+-- ============================================================
 function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, callback, flag)
     local state = default_state and true or false
     local key = default_key or Enum.KeyCode.None
@@ -2283,6 +2370,9 @@ function Library._GroupMethods:ToggleKeybind(text, default_state, default_key, c
     }
 end
 
+-- ============================================================
+-- COLOR PICKER
+-- ============================================================
 function Library._ColorPicker(parent, pos, start_color, on_change)
     local h, s, v = Color3.toHSV(start_color)
     local W = 150
@@ -2430,6 +2520,9 @@ function Library._ColorPicker(parent, pos, start_color, on_change)
     end
 end
 
+-- ============================================================
+-- BUILT-IN MANAGERS
+-- ============================================================
 function Library:CreateConfigManager(tab, side)
     local group = tab:Group("Config Manager", side or "left")
 
